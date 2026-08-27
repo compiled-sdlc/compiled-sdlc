@@ -1,0 +1,28 @@
+# working documents — never tracked
+manuscript/
+docs/
+*.docx
+*.pdf
+*.pptx
+*_INSTRUCTIONS.md
+*_BRIEF*.md
+notes/
+
+# generated outputs — regenerable via make
+figures/*
+!figures/.gitkeep
+data/*
+!data/.gitkeep
+runs/*
+!runs/.gitkeep
+
+# environments & caches
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# secrets & machine junk
+.env
+.DS_Store
