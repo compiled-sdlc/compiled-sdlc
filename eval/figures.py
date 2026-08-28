@@ -1,0 +1,165 @@
+"""The figures, regenerated from the records every time.
+
+No figure is drawn by hand and none is committed: `make eval` writes them into
+an untracked directory from the run records, so a figure can never drift from
+the numbers it claims to show.
+
+Every figure carries the label of the run set it came from. A pilot says so on
+its face, in the title, so that a screenshot of it cannot be mistaken for a
+result later.
+"""
+
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt  # noqa: E402  - the backend must be set first
+
+from eval.metrics import ArmSummary, pareto_frontier  # noqa: E402
+
+FIGURES_DIR = Path("figures")
+
+# Muted, distinguishable in grey, and stable per arm across every figure.
+ARM_COLOURS = {
+    "baseline": "#4a6fa5",
+    "lcir": "#a5584a",
+    "lcir_no_ast": "#6a8f5f",
+    "compressed": "#8a7aa5",
+}
+DEFAULT_COLOUR = "#666666"
+
+PANELS = (
+    ("cost_usd", "cost per cell (USD)"),
+    ("total_tokens", "tokens per cell"),
+    ("reasoning_tokens", "reasoning tokens per cell"),
+    ("turns", "turns per cell"),
+    ("wall_time_seconds", "wall time per cell (s)"),
+)
+
+
+def colour(arm: str) -> str:
+    return ARM_COLOURS.get(arm, DEFAULT_COLOUR)
+
+
+def _annotate(figure, label: str) -> None:
+    figure.text(
+        0.5,
+        0.005,
+        label,
+        ha="center",
+        va="bottom",
+        fontsize=8,
+        color="#8a4a4a" if label.startswith("PILOT") else "#555555",
+    )
+
+
+def pareto(summaries: list[ArmSummary], label: str, directory: Path = FIGURES_DIR) -> Path:
+    """Cost against verified success, one point per arm, frontier marked.
+
+    The shape is the result the brief asks for: where the arms sit relative to
+    each other, and whether spending more bought anything.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    figure, axes = plt.subplots(figsize=(6.5, 4.5))
+    frontier = set(pareto_frontier(summaries))
+
+    # Arms can land on the same point — a run set where every arm succeeded puts
+    # them all on the ceiling — so they are named in a legend rather than in
+    # labels that would overlap into an unreadable smear.
+    for summary in summaries:
+        cost = summary.distributions["cost_usd"]
+        lower, upper = cost.quartiles
+        on_frontier = summary.arm in frontier
+        axes.errorbar(
+            cost.median,
+            summary.salc.success_rate,
+            xerr=[[max(cost.median - lower, 0)], [max(upper - cost.median, 0)]],
+            fmt="o" if on_frontier else "s",
+            markersize=10 if on_frontier else 7,
+            color=colour(summary.arm),
+            ecolor=colour(summary.arm),
+            elinewidth=1,
+            capsize=3,
+            alpha=0.9,
+            label=(
+                f"{summary.arm} — ${cost.median:.3f}/cell, "
+                f"{summary.salc.success_rate:.0%} verified" + (" (frontier)" if on_frontier else "")
+            ),
+        )
+
+    axes.set_xlabel("median cost per cell (USD), bars show the interquartile range")
+    axes.set_ylabel("verified success rate")
+    axes.set_ylim(-0.05, 1.08)
+    axes.set_xlim(left=0)
+    axes.grid(True, alpha=0.25, linewidth=0.6)
+    axes.set_axisbelow(True)
+    axes.set_title("Cost against verified success, by arm", fontsize=11)
+    axes.spines["top"].set_visible(False)
+    axes.spines["right"].set_visible(False)
+    axes.legend(loc="lower right", fontsize=8, frameon=False)
+    if len(frontier) == len(summaries):
+        axes.text(
+            0.02,
+            0.04,
+            "no arm dominates another",
+            transform=axes.transAxes,
+            fontsize=8,
+            color="#555555",
+        )
+    _annotate(figure, label)
+    figure.tight_layout(rect=(0, 0.04, 1, 1))
+    path = directory / "pareto-cost-vs-success.png"
+    figure.savefig(path, dpi=160)
+    plt.close(figure)
+    return path
+
+
+def distributions(summaries: list[ArmSummary], label: str, directory: Path = FIGURES_DIR) -> Path:
+    """Median and interquartile range per arm, for every per-cell measure.
+
+    Medians and spreads rather than means: run-to-run variance on this kind of
+    work is large enough that an average of a handful of runs says very little.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    figure, axes_grid = plt.subplots(1, len(PANELS), figsize=(3.0 * len(PANELS), 4.0))
+    arms = [summary.arm for summary in summaries]
+    positions = range(len(arms))
+
+    for axes, (measure, title) in zip(axes_grid, PANELS, strict=True):
+        for position, summary in zip(positions, summaries, strict=True):
+            spread = summary.distributions[measure]
+            lower, upper = spread.quartiles
+            axes.errorbar(
+                position,
+                spread.median,
+                yerr=[[max(spread.median - lower, 0)], [max(upper - spread.median, 0)]],
+                fmt="o",
+                markersize=7,
+                color=colour(summary.arm),
+                ecolor=colour(summary.arm),
+                elinewidth=1.2,
+                capsize=4,
+            )
+        axes.set_xticks(list(positions))
+        axes.set_xticklabels(arms, rotation=30, ha="right", fontsize=8)
+        axes.set_title(title, fontsize=9)
+        axes.grid(True, axis="y", alpha=0.25, linewidth=0.6)
+        axes.set_axisbelow(True)
+        axes.set_ylim(bottom=0)
+        axes.spines["top"].set_visible(False)
+        axes.spines["right"].set_visible(False)
+
+    figure.suptitle("Per-cell distributions by arm: median and interquartile range", fontsize=11)
+    _annotate(figure, label)
+    figure.tight_layout(rect=(0, 0.04, 1, 0.96))
+    path = directory / "distributions-by-arm.png"
+    figure.savefig(path, dpi=160)
+    plt.close(figure)
+    return path
+
+
+def write_all(summaries: list[ArmSummary], label: str, directory: Path = FIGURES_DIR) -> list[Path]:
+    """Every figure, in the order they are referred to."""
+    return [pareto(summaries, label, directory), distributions(summaries, label, directory)]

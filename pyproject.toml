@@ -5,6 +5,7 @@ description = "Experiment pipeline for a dual-representation lifecycle protocol 
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "jsonschema[format-nongpl]>=4.23",
+    "matplotlib>=3.11.1",
     "pyyaml>=6.0.3",
 ]
 

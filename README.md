@@ -141,6 +141,41 @@ application and every `must` invariant must pass. A check that is already green
 cannot tell a successful run from an agent that did nothing. `make calibrate`
 does it and records the result in `bench/calibration.json`.
 
+## What the evaluation reports
+
+**Success-adjusted lifecycle cost** — model cost plus execution cost plus
+review time at a stated rate, divided by verified successes. Dividing by
+successes is the point: an arm that spends twice as much and fails half as often
+is not cheaper, and retries and failures show up as cost instead of averaging
+away. A verified success passed the hidden acceptance checks and violated no
+`must` invariant — nothing else enters that denominator. Review time is not
+measured yet, so the weighted term contributes nothing; the report says so
+rather than reporting it as zero review time, which would be a different claim.
+
+**Governance completeness** — five components: whether the change was stated as
+a transformation plan that validates, whether the bundle assembled, whether the
+human decision the risk class demands was recorded, whether every obligation has
+a passing evidence path, and whether every transformation is accounted for by
+the ledger. Only the arms that produce IR can answer any of them, and that is
+reported as a capability, never scored as a penalty: an arm with no IR is not
+failing these checks, it has no way to take them — and no way to notice when its
+own governance is incomplete. Each component reads as scored, applicable but not
+recorded, or not observable; none of the three is a zero, and none of them
+touches whether a change request succeeded.
+
+**Distributions and the frontier** — median and interquartile range per arm for
+cost, tokens, reasoning tokens, turns and wall time, a Pareto plot of cost
+against verified success, and a per-change-request breakdown. Medians rather
+than means, because run-to-run variance on this kind of work is large enough
+that an average of a handful of runs says very little. Where the frontier
+separates two arms by less than their own spread, the report says the ordering
+is not established.
+
+Every output is labelled by what it was computed from, and the label is decided
+by the data: a run set that has not met the experiment's discipline — three
+seeds per cell over the full change-request set — is labelled a pilot on every
+table and every figure. There is no flag to say otherwise.
+
 ## Reproduction
 
 Nothing generated is committed. Every number, table, and figure is rebuilt from
@@ -151,8 +186,15 @@ make bench-setup   # fetch the target application at its pin, then build and sta
 make calibrate     # check every hidden check is red before the change and green after
 make bench-plan    # list the cells a run would cover, and which are still pending
 make bench         # execute the change-request set across the four arms
-make eval          # recompute every metric from runs/
+make eval          # recompute every metric and figure from runs/
+make project CRS=20 SEEDS=3   # price a run before launching it
 ```
+
+`make eval` reads the run records and nothing else — not the bundles a run left
+beside them, not anything held in memory while it ran. Delete the figures and
+the summary, run it again, and the same numbers come back. Everything it writes
+lands in untracked directories: the repository carries the recipe, not the
+product.
 
 Run telemetry is written as JSONL under `runs/`, which is not tracked.
 

@@ -5,7 +5,7 @@ UV ?= uv
 
 .DEFAULT_GOAL := all
 .PHONY: all help setup scaffold lint fmt test audit install-hook \
-        schemas bench-setup bench-status bench-validate calibrate bench bench-plan smoke stack-start stack-stop stack-status eval manuscript clean
+        schemas bench-setup bench-status bench-validate calibrate bench bench-plan smoke stack-start stack-stop stack-status eval project manuscript clean
 
 all: lint test audit
 
@@ -88,7 +88,10 @@ stack-status:
 	@$(UV) run python infra/stack.py status
 
 eval:
-	@$(UV) run python -m eval.pilot $(EVAL_FLAGS)
+	@$(UV) run python -m eval.report $(EVAL_FLAGS)
+
+project:
+	@$(UV) run python -m eval.projection $(PROJECT_FLAGS)
 
 manuscript:
 	@echo "manuscript: implemented in phase 5"; exit 1

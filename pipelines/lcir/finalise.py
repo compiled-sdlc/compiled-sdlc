@@ -25,6 +25,7 @@ from pipelines.lcir import compile as compiler
 sys.path.insert(0, str(locks.REPO_ROOT / "lifecycle-ir"))
 
 from lcir.bundle import load_bundle  # noqa: E402
+from lcir.coverage import measure  # noqa: E402
 from lcir.integrity import check_bundle  # noqa: E402
 from lcir.schemas import validate_document  # noqa: E402
 
@@ -157,6 +158,8 @@ def finalise(
     (directory / "bundle.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
     problems: list[str] = []
+    obligations_traced: float | None = None
+    transformations_attributed: float | None = None
     if "transformation-plan.json" in documents:
         bundle, load_problems = load_bundle(directory)
         problems = [str(problem) for problem in load_problems]
@@ -165,6 +168,12 @@ def finalise(
             for problem in check_bundle(bundle, bundle.nodes())
             if problem.severity == "error"
         ]
+        # Recorded here so the evaluation can read them off the run record: the
+        # metrics are computed from the records alone, never by re-reading the
+        # bundles a run happened to leave behind.
+        coverage, _ = measure(bundle, bundle.nodes())
+        obligations_traced = round(coverage.obligations_traced, 4)
+        transformations_attributed = round(coverage.transformations_attributed, 4)
 
     from projections import render
 
@@ -183,5 +192,17 @@ def finalise(
         "transformation_plan_problems": plan_problems[:5],
         "bundle_problems": problems[:10],
         "bundle_validated": bool(problems == [] and "transformation-plan.json" in documents),
+        "tier_required": (
+            documents["constraint-graph.json"]["risk"]["autonomy_tier"] in {"L2", "L3"}
+        ),
+        # Unknown, not satisfied, when there was no bundle to check it against:
+        # an obligation nobody looked for is not an obligation met.
+        "tier_satisfied": (
+            None
+            if "transformation-plan.json" not in documents
+            else not any("tier-approval-missing" in problem for problem in problems)
+        ),
+        "obligations_traced": obligations_traced,
+        "transformations_attributed": transformations_attributed,
         "projections": rendered,
     }
