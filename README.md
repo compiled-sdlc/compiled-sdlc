@@ -11,10 +11,10 @@ lifecycle cost** — total model, tool, and weighted human-review cost across al
 attempts, divided by the number of change requests that pass hidden acceptance
 tests without violating a `must` invariant.
 
-Status: the IR schemas and their validator are in place; the benchmark harness
-and the arms are not. No experimental results have been produced yet; none are
-reported here or anywhere else in the repository until `eval/` computes them
-from recorded runs.
+Status: the IR schemas, their validator, and the benchmark harness are in
+place; the four arms are not. No experimental results have been produced yet;
+none are reported here or anywhere else in the repository until `eval/`
+computes them from recorded runs.
 
 ## Quickstart
 
@@ -22,11 +22,19 @@ Requires [uv](https://docs.astral.sh/uv/) and GNU make. Docker is required from
 the benchmark phase onward.
 
 ```sh
-make scaffold   # create the virtual environment and the untracked working directories
-make            # lint, test, and run the repository hygiene audit
-make schemas    # validate every Lifecycle IR example against its schema
-make help       # list every target
+make scaffold        # create the virtual environment and the untracked working directories
+make                 # lint, test, and run the repository hygiene audit
+make schemas         # validate every Lifecycle IR example against its schema
+make bench-setup     # fetch the target application at its pin and check it builds and starts
+make bench-validate  # check the change-request set against its schema and the pin
+make smoke           # prove the executor plumbing with one trivial run
+make help            # list every target
 ```
+
+Everything the experiment is pinned to is in a lock file: the target
+application and its build in `bench/target.lock`, the executor and the model it
+runs in `bench/executor.lock`, and the prices token counts are costed at in
+`eval/pricing.lock`. Nothing else in the repository names them.
 
 ## Layout
 
@@ -39,7 +47,7 @@ make help       # list every target
 | `pipelines/lcir_no_ast/` | Arm C — ablation: typed intent and evidence, plain-text edits |
 | `pipelines/compressed/` | Arm D — aggressively minified artifacts |
 | `projections/` | Generators that render human-readable views from the IR |
-| `bench/` | Target-application pin, change-request set, acceptance tests, invariants |
+| `bench/` | Target-application pin, executor pin, change-request set, hidden acceptance tests |
 | `eval/` | Metrics and figure generation |
 | `infra/` | Repository hygiene audit and environment setup |
 | `tests/` | Test suite |
@@ -61,6 +69,32 @@ every cross-reference the IR defines and what the validator enforces;
 `lifecycle-ir/examples/change-request/CR-014/` is one change request expressed
 fully in IR, exercising all of them.
 
+## How a run works
+
+One run is one change request, put to one arm, at one seed.
+
+1. The run gets a fresh worktree of the target application at its pin. Nothing
+   from this repository is placed in it.
+2. The arm renders the change request's statement — and only its statement —
+   into whatever artifacts that arm gives an agent.
+3. The pinned executor runs headlessly in that worktree under three budgets: a
+   cost ceiling it enforces itself, and a turn cap and a wall clock the harness
+   enforces around it. The whole event stream is captured as it arrives.
+4. Once the agent has stopped, the harness applies the ground truth the agent
+   never saw: the `must` invariants, evaluated against the worktree and the
+   pin, and the hidden acceptance tests, placed in the worktree only now, run,
+   and removed again.
+5. The run record is written: tokens in, out and reasoning, tool calls, turns,
+   wall time, the cost recomputed from the captured price table, what changed
+   in the worktree, and what verification decided.
+
+A run is a verified success only if every acceptance check passes and no `must`
+invariant was violated. A cell the apparatus could not complete — a rate limit,
+an exhausted balance, a timeout — is recorded as aborted with the class of
+failure, and is never counted as a failure of the agent. The matrix is
+resumable: a cell with a terminal record is skipped, so an interrupted run is
+continued by invoking the runner again.
+
 ## Reproduction
 
 Nothing generated is committed. Every number, table, and figure is rebuilt from
@@ -68,6 +102,7 @@ recorded run data:
 
 ```sh
 make bench-setup   # clone the target application at its pinned commit
+make bench-plan    # list the cells a run would cover, and which are still pending
 make bench         # execute the change-request set across the four arms
 make eval          # recompute every metric and figure from runs/
 ```
