@@ -1,5 +1,6 @@
 """Tests for the repository hygiene machinery: ignore rules and the audit script."""
 
+import hashlib
 import shutil
 import subprocess
 from pathlib import Path
@@ -62,6 +63,7 @@ def make_repo(tmp_path: Path) -> Path:
     (tmp_path / "infra").mkdir()
     shutil.copy(AUDIT, tmp_path / "infra" / "audit.sh")
     shutil.copy(REPO / ".gitignore", tmp_path / ".gitignore")
+    shutil.copy(REPO / "LICENSE", tmp_path / "LICENSE")
 
     def run(*args):
         subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
@@ -139,3 +141,35 @@ def test_bulk_add_cannot_capture_forbidden_files(tmp_path):
         ["git", "diff", "--cached", "--name-only"], cwd=repo, capture_output=True, text=True
     ).stdout.split()
     assert tracked == []
+
+
+def test_audit_detects_a_tampered_license(tmp_path):
+    """Check 2 excludes LICENSE, so check 5 must catch content smuggled into it."""
+    repo = make_repo(tmp_path)
+    with (repo / "LICENSE").open("a") as fh:
+        fh.write("\n   Note: portions gene" + "rated by a tool.\n")
+    commit(repo, "amend license")
+    result = audit(repo)
+    assert result.returncode == 1
+    assert "FAIL  5." in result.stdout
+
+
+def test_audit_detects_a_missing_license(tmp_path):
+    repo = make_repo(tmp_path)
+    (repo / "LICENSE").unlink()
+    commit(repo, "drop license")
+    result = audit(repo)
+    assert result.returncode == 1
+    assert "FAIL  5." in result.stdout
+
+
+def test_license_normalises_to_the_canonical_apache_text():
+    """The tracked LICENSE differs from upstream only in its copyright line."""
+    text = (REPO / "LICENSE").read_text()
+    assert "   Copyright 2026 Syed Moid\n" in text
+    canonical = text.replace(
+        "   Copyright 2026 Syed Moid\n",
+        "   Copyright [yyyy] [name of copyright owner]\n",
+    )
+    digest = hashlib.sha256(canonical.encode()).hexdigest()
+    assert digest == "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
