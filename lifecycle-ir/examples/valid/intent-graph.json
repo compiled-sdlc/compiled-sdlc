@@ -1,0 +1,56 @@
+{
+  "kind": "intent_graph",
+  "ir_version": "0.1.0",
+  "change_request": "CR-001",
+  "title": "Show the owner's telephone number on the pet detail page",
+  "actors": [
+    {"id": "actor:clinic-staff", "name": "Clinic staff", "type": "human"}
+  ],
+  "goals": [
+    {
+      "id": "goal:reach-owner-quickly",
+      "statement": "Staff can reach a pet's owner without leaving the pet detail page.",
+      "priority": "should",
+      "stakeholders": ["actor:clinic-staff"]
+    }
+  ],
+  "behaviors": [
+    {
+      "id": "behavior:show-owner-telephone",
+      "statement": "The pet detail page shows the owner's telephone number next to the owner's name.",
+      "satisfies": ["goal:reach-owner-quickly"],
+      "actors": ["actor:clinic-staff"],
+      "contracts": [
+        {
+          "binding": "openapi",
+          "document": "bench/contracts/customers-service.openapi.yaml",
+          "specification_version": "3.1.0",
+          "pointer": "#/paths/~1owners~1{ownerId}~1pets~1{petId}/get"
+        }
+      ]
+    }
+  ],
+  "acceptance_conditions": [
+    {
+      "id": "acceptance:telephone-rendered",
+      "statement": "The rendered pet detail page contains the owner's telephone number.",
+      "verifies": ["behavior:show-owner-telephone"],
+      "check": {"binding": "test", "ref": "check:pets.detail.telephone"}
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "exclusion:no-click-to-call",
+      "statement": "Making the number dialable is out of scope.",
+      "scopes": ["goal:reach-owner-quickly"]
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "question:format",
+      "question": "Should the number be formatted to the clinic's locale?",
+      "status": "open",
+      "blocks": ["behavior:show-owner-telephone"]
+    }
+  ]
+}

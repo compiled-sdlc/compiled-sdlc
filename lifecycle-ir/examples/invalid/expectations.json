@@ -1,0 +1,26 @@
+{
+  "intent-graph-resolved-without-resolution.json": {
+    "violates": "a question marked resolved must record its resolution",
+    "message_contains": "'resolution' is a required property"
+  },
+  "constraint-graph-unknown-obligation.json": {
+    "violates": "a constraint is either a must or a should; there is no third strength",
+    "message_contains": "'may' is not one of ['must', 'should']"
+  },
+  "transformation-plan-replace-without-payload.json": {
+    "violates": "a replacement must state what it puts in place of what it replaces",
+    "message_contains": "'payload' is a required property"
+  },
+  "evidence-graph-analysis-without-sarif.json": {
+    "violates": "static-analysis evidence is carried as SARIF, not as any format the run happened to produce",
+    "message_contains": "'sarif' was expected"
+  },
+  "provenance-ledger-entry-without-predecessor.json": {
+    "violates": "every entry after the first names its predecessor, so the ledger is a chain rather than a list",
+    "message_contains": "'previous' is a required property"
+  },
+  "bundle-missing-structure.json": {
+    "violates": "a bundle carries all five structures; four of them is not a lifecycle representation",
+    "message_contains": "'provenance_ledger' is a required property"
+  }
+}

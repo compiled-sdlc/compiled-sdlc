@@ -1,0 +1,15 @@
+{
+  "kind": "lifecycle_ir_bundle",
+  "ir_version": "0.1.0",
+  "change_request": "CR-001",
+  "title": "Show the owner's telephone number on the pet detail page",
+  "description": "The manifest form of a bundle: the five documents that together express one change request. The documents beside it in this directory are the per-schema examples for CR-001; the fully linked bundle lives under examples/change-request.",
+  "created_at": "2026-08-27T08:00:00Z",
+  "documents": {
+    "intent_graph": "intent-graph.json",
+    "constraint_graph": "constraint-graph.json",
+    "transformation_plan": "transformation-plan.json",
+    "evidence_graph": "evidence-graph.json",
+    "provenance_ledger": "provenance-ledger.json"
+  }
+}

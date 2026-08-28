@@ -1,0 +1,62 @@
+{
+  "kind": "provenance_ledger",
+  "ir_version": "0.1.0",
+  "change_request": "CR-001",
+  "principals": [
+    {
+      "id": "principal:delivery-agent",
+      "type": "agent",
+      "name": "Lifecycle delivery agent",
+      "version": "0.1.0"
+    }
+  ],
+  "entries": [
+    {
+      "id": "entry:compile-intent",
+      "sequence": 1,
+      "action": "generate",
+      "principal": "principal:delivery-agent",
+      "summary": "Compiled the change request into the intent and constraint graphs.",
+      "input_artifacts": [
+        {
+          "uri": "bench/change-requests/CR-001.yaml",
+          "media_type": "application/yaml"
+        }
+      ],
+      "confidence": 0.9,
+      "recorded_at": "2026-08-27T08:00:00Z"
+    },
+    {
+      "id": "entry:apply-edit",
+      "sequence": 2,
+      "action": "transform",
+      "principal": "principal:delivery-agent",
+      "input_nodes": [
+        "behavior:show-owner-telephone"
+      ],
+      "covers": [
+        "edit:include-telephone-in-pet-details"
+      ],
+      "recorded_at": "2026-08-27T08:20:00Z"
+    },
+    {
+      "id": "entry:record-verification",
+      "sequence": 3,
+      "previous": "entry:apply-edit",
+      "action": "verify",
+      "principal": "principal:delivery-agent",
+      "attests": [
+        "evidence:telephone-rendered",
+        "evidence:no-extra-round-trip"
+      ],
+      "attestations": [
+        {
+          "binding": "in-toto",
+          "predicate_type": "https://in-toto.io/attestation/test-result/v0.1",
+          "uri": "runs/CR-001/attestations/test-result.intoto.jsonl"
+        }
+      ],
+      "recorded_at": "2026-08-27T08:32:00Z"
+    }
+  ]
+}

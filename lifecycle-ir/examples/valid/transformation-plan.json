@@ -1,0 +1,43 @@
+{
+  "kind": "transformation_plan",
+  "ir_version": "0.1.0",
+  "change_request": "CR-001",
+  "implements": ["behavior:show-owner-telephone", "acceptance:telephone-rendered"],
+  "respects": ["constraint:no-extra-round-trip", "constraint:telephone-visibility"],
+  "components": [
+    {
+      "id": "component:customers-service",
+      "name": "Customers service",
+      "repository": "https://github.com/spring-petclinic/spring-petclinic-microservices",
+      "path": "spring-petclinic-customers-service",
+      "language": "java"
+    }
+  ],
+  "code_changes": [
+    {
+      "id": "edit:include-telephone-in-pet-details",
+      "component": "component:customers-service",
+      "summary": "Carry the owner's telephone number in the pet details projection.",
+      "operation": "replace",
+      "address": {
+        "binding": "tree-sitter",
+        "file": "spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/web/PetDetails.java",
+        "language": "java",
+        "node_type": "record_declaration",
+        "query": "(record_declaration name: (identifier) @name (#eq? @name \"PetDetails\")) @target",
+        "occurrence": 1
+      },
+      "payload": "record PetDetails(long id, String name, String birthDate, PetType type, String ownerTelephone) { }",
+      "implements": ["behavior:show-owner-telephone", "acceptance:telephone-rendered"],
+      "respects": ["constraint:no-extra-round-trip"]
+    }
+  ],
+  "rollback": [
+    {
+      "id": "rollback:revert-projection",
+      "reverses": ["edit:include-telephone-in-pet-details"],
+      "strategy": "revert_commit",
+      "procedure": "Revert the commit materialised from this plan; no deployment change accompanies it."
+    }
+  ]
+}

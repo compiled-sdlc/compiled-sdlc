@@ -1,0 +1,44 @@
+{
+  "kind": "constraint_graph",
+  "ir_version": "0.1.0",
+  "change_request": "CR-001",
+  "risk": {
+    "class": "low",
+    "autonomy_tier": "L1",
+    "change_class": "standard",
+    "rationale": "A read-only presentation change to data the page already loads."
+  },
+  "constraints": [
+    {
+      "id": "constraint:no-extra-round-trip",
+      "category": "performance",
+      "statement": "The page must not issue an additional request to render the number.",
+      "obligation": "may",
+      "severity": "medium",
+      "applies_to": [
+        "behavior:show-owner-telephone"
+      ],
+      "threshold": {
+        "metric": "additional requests per page render",
+        "operator": "eq",
+        "value": 0
+      }
+    },
+    {
+      "id": "constraint:telephone-visibility",
+      "category": "privacy",
+      "statement": "The number is shown only to authenticated clinic staff.",
+      "obligation": "must",
+      "severity": "high",
+      "applies_to": [
+        "goal:reach-owner-quickly"
+      ],
+      "policy": {
+        "binding": "cedar",
+        "module": "petclinic::pets",
+        "entrypoint": "permit_view_telephone",
+        "uri": "bench/policies/pets.cedar"
+      }
+    }
+  ]
+}

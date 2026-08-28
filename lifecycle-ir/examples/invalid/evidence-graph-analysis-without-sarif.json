@@ -1,0 +1,45 @@
+{
+  "kind": "evidence_graph",
+  "ir_version": "0.1.0",
+  "change_request": "CR-001",
+  "evidence": [
+    {
+      "id": "evidence:telephone-rendered",
+      "kind": "test",
+      "status": "pass",
+      "summary": "The rendered page contains the owner's telephone number.",
+      "discharges": [
+        "acceptance:telephone-rendered",
+        "behavior:show-owner-telephone"
+      ],
+      "covers": [
+        "edit:include-telephone-in-pet-details"
+      ],
+      "check": "check:pets.detail.telephone",
+      "artifact": {
+        "binding": "junit",
+        "uri": "runs/CR-001/junit/pet-detail.xml",
+        "format_version": "5"
+      },
+      "observed_at": "2026-08-27T08:30:00Z"
+    },
+    {
+      "id": "evidence:no-extra-round-trip",
+      "kind": "static_analysis",
+      "status": "pass",
+      "summary": "No new outbound call appears on the pet detail path.",
+      "discharges": [
+        "constraint:no-extra-round-trip"
+      ],
+      "covers": [
+        "edit:include-telephone-in-pet-details"
+      ],
+      "artifact": {
+        "binding": "opentelemetry",
+        "uri": "runs/CR-001/otel/call-graph.jsonl",
+        "format_version": "1.7.0"
+      },
+      "observed_at": "2026-08-27T08:31:00Z"
+    }
+  ]
+}
