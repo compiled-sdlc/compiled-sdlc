@@ -48,7 +48,7 @@ install-hook:
 	@bash infra/audit.sh --install-hook
 
 schemas:
-	@echo "schemas: implemented in phase 1"; exit 1
+	$(UV) run python lifecycle-ir/validate.py examples
 
 bench-setup:
 	@echo "bench-setup: implemented in phase 2"; exit 1

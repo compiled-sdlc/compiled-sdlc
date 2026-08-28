@@ -3,7 +3,9 @@ name = "compiled-sdlc"
 version = "0.1.0"
 description = "Experiment pipeline for a dual-representation lifecycle protocol for agentic software delivery"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "jsonschema[format-nongpl]>=4.23",
+]
 
 [dependency-groups]
 dev = [
