@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:compiled-sdlc:lifecycle-ir:0.1:intent-graph",
+  "version": "0.1.0",
+  "title": "Intent Graph",
+  "description": "What the change is for: goals, the actors they serve, the behaviors that realise them, the conditions that decide acceptance, what is explicitly out of scope, and what is still unresolved. Interface behavior is bound to an OpenAPI or AsyncAPI document rather than restated in prose, and every acceptance condition names the executable check that decides it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "ir_version", "change_request", "title", "actors", "goals", "behaviors", "acceptance_conditions"],
+  "properties": {
+    "kind": {"const": "intent_graph"},
+    "ir_version": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/irVersion"},
+    "change_request": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/changeRequest"},
+    "title": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+    "actors": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/actor"}},
+    "goals": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/goal"}},
+    "behaviors": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/behavior"}},
+    "acceptance_conditions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/acceptanceCondition"}},
+    "exclusions": {"type": "array", "items": {"$ref": "#/$defs/exclusion"}},
+    "open_questions": {"type": "array", "items": {"$ref": "#/$defs/openQuestion"}}
+  },
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/actorId"},
+        "name": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "type": {"enum": ["human", "service", "agent", "external_system"]},
+        "description": {"type": "string"}
+      }
+    },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/goalId"},
+        "statement": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "priority": {"enum": ["must", "should", "could"]},
+        "stakeholders": {
+          "description": "Cross-reference: goal -> actor.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/actorId"}
+        },
+        "motivation": {"type": "string"}
+      }
+    },
+    "behavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "satisfies"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/behaviorId"},
+        "statement": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "satisfies": {
+          "description": "Cross-reference: behavior -> goal.",
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/goalId"}
+        },
+        "actors": {
+          "description": "Cross-reference: behavior -> actor.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/actorId"}
+        },
+        "contracts": {"type": "array", "items": {"$ref": "#/$defs/contract"}}
+      }
+    },
+    "contract": {
+      "description": "Standards binding: the interface a behavior touches, addressed inside an OpenAPI or AsyncAPI document instead of being restated in prose.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "document", "pointer"],
+      "properties": {
+        "binding": {"enum": ["openapi", "asyncapi"]},
+        "document": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/uri"},
+        "specification_version": {"type": "string"},
+        "pointer": {
+          "description": "JSON Pointer into the contract document.",
+          "type": "string",
+          "pattern": "^#?/"
+        },
+        "operation": {"type": "string"}
+      }
+    },
+    "acceptanceCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "verifies", "check"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/acceptanceId"},
+        "statement": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "verifies": {
+          "description": "Cross-reference: acceptance condition -> goal or behavior.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^(goal|behavior):[a-z0-9][a-z0-9._-]*$"
+          }
+        },
+        "check": {"$ref": "#/$defs/check"}
+      }
+    },
+    "check": {
+      "description": "The executable check that decides this condition. Held in bench/ and never shown to an agent; the IR records only the reference.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "ref"],
+      "properties": {
+        "binding": {"enum": ["test", "policy", "analysis", "manual"]},
+        "ref": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/checkRef"},
+        "description": {"type": "string"}
+      }
+    },
+    "exclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/exclusionId"},
+        "statement": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "scopes": {
+          "description": "Cross-reference: exclusion -> goal or behavior it bounds.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(goal|behavior):[a-z0-9][a-z0-9._-]*$"
+          }
+        }
+      }
+    },
+    "openQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "question", "status"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/questionId"},
+        "question": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "status": {"enum": ["open", "resolved"]},
+        "blocks": {
+          "description": "Cross-reference: open question -> the intent nodes it blocks.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/intentSubjectId"}
+        },
+        "resolution": {"type": "string"}
+      },
+      "if": {"properties": {"status": {"const": "resolved"}}, "required": ["status"]},
+      "then": {"required": ["resolution"]}
+    }
+  }
+}

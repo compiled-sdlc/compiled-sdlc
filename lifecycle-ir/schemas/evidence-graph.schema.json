@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:compiled-sdlc:lifecycle-ir:0.1:evidence-graph",
+  "version": "0.1.0",
+  "title": "Evidence Graph",
+  "description": "What discharges the obligations. Every node states which intent clauses and constraints it discharges and which transformations it covers, so traceability is a property of the graph rather than a document someone maintains. Static analysis results are carried as SARIF and runtime observations as OpenTelemetry, in both cases by reference and content hash rather than by restatement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "ir_version", "change_request", "evidence"],
+  "properties": {
+    "kind": {"const": "evidence_graph"},
+    "ir_version": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/irVersion"},
+    "change_request": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/changeRequest"},
+    "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceNode"}}
+  },
+  "$defs": {
+    "evidenceNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "status", "discharges", "observed_at"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/evidenceId"},
+        "kind": {"enum": ["test", "static_analysis", "runtime", "formal", "review", "build"]},
+        "status": {"enum": ["pass", "fail", "inconclusive", "not_run"]},
+        "summary": {"type": "string"},
+        "discharges": {
+          "description": "Cross-reference: evidence -> the intent clauses and constraints it discharges.",
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/obligationTargetId"}
+        },
+        "covers": {
+          "description": "Cross-reference: evidence -> the transformations it was observed over.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/transformationId"}
+        },
+        "derived_from": {
+          "description": "Cross-reference: evidence -> evidence it was derived from.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/evidenceId"}
+        },
+        "check": {
+          "description": "The executable check that produced this evidence, matching the reference named by the acceptance condition it discharges.",
+          "$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/checkRef"
+        },
+        "artifact": {"$ref": "#/$defs/evidenceArtifact"},
+        "observed_at": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/timestamp"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "static_analysis"}}, "required": ["kind"]},
+          "then": {
+            "required": ["artifact"],
+            "properties": {"artifact": {"properties": {"binding": {"const": "sarif"}}}}
+          }
+        },
+        {
+          "if": {"properties": {"kind": {"const": "runtime"}}, "required": ["kind"]},
+          "then": {
+            "required": ["artifact"],
+            "properties": {"artifact": {"properties": {"binding": {"const": "opentelemetry"}}}}
+          }
+        },
+        {
+          "if": {"properties": {"kind": {"const": "test"}}, "required": ["kind"]},
+          "then": {"required": ["check"]}
+        }
+      ]
+    },
+    "evidenceArtifact": {
+      "description": "Standards binding: the machine-readable record behind the evidence node.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "uri"],
+      "properties": {
+        "binding": {"enum": ["sarif", "opentelemetry", "junit", "text"]},
+        "uri": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/uri"},
+        "format_version": {"type": "string"},
+        "sha256": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/sha256"}
+      }
+    }
+  }
+}

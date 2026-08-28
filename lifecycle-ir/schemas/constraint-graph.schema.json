@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:compiled-sdlc:lifecycle-ir:0.1:constraint-graph",
+  "version": "0.1.0",
+  "title": "Constraint Graph",
+  "description": "The boundaries the change must respect: security, privacy, architecture, performance, compatibility and cost. Every constraint carries an obligation (must or should) and a severity, points at the intent it bounds, and where it is machine-decidable names the policy module that decides it. The risk class recorded here is what assigns the autonomy tier for the change.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "ir_version", "change_request", "risk", "constraints"],
+  "properties": {
+    "kind": {"const": "constraint_graph"},
+    "ir_version": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/irVersion"},
+    "change_request": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/changeRequest"},
+    "risk": {"$ref": "#/$defs/risk"},
+    "constraints": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/constraint"}}
+  },
+  "$defs": {
+    "risk": {
+      "description": "Risk class and the autonomy tier it assigns. L0 auto-merge, L1 notify, L2 approve-on-evidence, L3 human-led. A tier of L2 or L3 obliges the provenance ledger to carry an approval entry at that tier.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "autonomy_tier", "rationale"],
+      "properties": {
+        "class": {"enum": ["low", "standard", "elevated", "critical"]},
+        "autonomy_tier": {"enum": ["L0", "L1", "L2", "L3"]},
+        "rationale": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "change_class": {
+          "description": "The operational change class practitioners already use.",
+          "enum": ["standard", "normal", "emergency"]
+        }
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "statement", "obligation", "severity", "applies_to"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/constraintId"},
+        "category": {"enum": ["security", "privacy", "architecture", "performance", "compatibility", "cost"]},
+        "statement": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "obligation": {"enum": ["must", "should"]},
+        "severity": {"enum": ["low", "medium", "high", "critical"]},
+        "applies_to": {
+          "description": "Cross-reference: constraint -> the intent nodes it bounds.",
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/intentSubjectId"}
+        },
+        "policy": {"$ref": "#/$defs/policy"},
+        "threshold": {"$ref": "#/$defs/threshold"},
+        "source": {
+          "description": "Where the constraint comes from: a standard, a regulation, an architecture decision record, an incident.",
+          "type": "string"
+        }
+      }
+    },
+    "policy": {
+      "description": "Standards binding: the machine-decidable form of the constraint.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "module", "entrypoint"],
+      "properties": {
+        "binding": {"enum": ["rego", "cedar"]},
+        "module": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "entrypoint": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "uri": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/uri"}
+      }
+    },
+    "threshold": {
+      "description": "The quantitative form of a constraint, for the categories where one exists.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "operator", "value"],
+      "properties": {
+        "metric": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "operator": {"enum": ["lt", "lte", "gt", "gte", "eq", "neq"]},
+        "value": {"type": "number"},
+        "unit": {"type": "string"}
+      }
+    }
+  }
+}

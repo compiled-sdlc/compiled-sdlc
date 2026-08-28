@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:compiled-sdlc:lifecycle-ir:0.1:provenance-ledger",
+  "version": "0.1.0",
+  "title": "Provenance Ledger",
+  "description": "Who or what did each thing, to which node, on what inputs, with what result. The ledger is an append-only chain of entries: each entry after the first names its predecessor, so the sequence is checkable rather than assumed. Entries carry in-toto or SLSA attestations, SBOMs and Sigstore signatures by reference, and an approval entry is what records a human decision at an autonomy tier that requires one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "ir_version", "change_request", "principals", "entries"],
+  "properties": {
+    "kind": {"const": "provenance_ledger"},
+    "ir_version": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/irVersion"},
+    "change_request": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/changeRequest"},
+    "principals": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/principal"}},
+    "entries": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/entry"}}
+  },
+  "$defs": {
+    "principal": {
+      "description": "An actor in the delivery process itself: a person, an agent, the model behind it, or a tool. Versions are recorded because a result is only reproducible against the versions that produced it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "name"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/principalId"},
+        "type": {"enum": ["human", "agent", "model", "tool"]},
+        "name": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "version": {"type": "string"},
+        "role": {"type": "string"}
+      },
+      "if": {"properties": {"type": {"enum": ["model", "tool"]}}, "required": ["type"]},
+      "then": {"required": ["version"]}
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sequence", "action", "principal", "recorded_at"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/entryId"},
+        "sequence": {"type": "integer", "minimum": 1},
+        "previous": {
+          "description": "Cross-reference: entry -> the entry before it in the chain. Absent only on the first entry.",
+          "$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/entryId"
+        },
+        "action": {"enum": ["generate", "transform", "verify", "approve", "reject", "deploy", "reconcile"]},
+        "principal": {
+          "description": "Cross-reference: entry -> the principal that acted.",
+          "$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/principalId"
+        },
+        "summary": {"type": "string"},
+        "input_nodes": {
+          "description": "Cross-reference: entry -> the IR nodes the action consumed.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/nodeId"}
+        },
+        "input_artifacts": {
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/artifact"}
+        },
+        "covers": {
+          "description": "Cross-reference: entry -> the transformations it produced or executed.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/transformationOrRollbackId"}
+        },
+        "attests": {
+          "description": "Cross-reference: entry -> the evidence it vouches for.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/evidenceId"}
+        },
+        "approval": {"$ref": "#/$defs/approval"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "attestations": {"type": "array", "items": {"$ref": "#/$defs/attestation"}},
+        "recorded_at": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/timestamp"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"action": {"enum": ["approve", "reject"]}}, "required": ["action"]},
+          "then": {"required": ["approval"]}
+        },
+        {
+          "if": {"properties": {"sequence": {"const": 1}}, "required": ["sequence"]},
+          "then": {"not": {"required": ["previous"]}}
+        },
+        {
+          "if": {"properties": {"sequence": {"minimum": 2}}, "required": ["sequence"]},
+          "then": {"required": ["previous"]}
+        }
+      ]
+    },
+    "approval": {
+      "description": "A decision taken at an autonomy tier, by a named principal, over named IR nodes.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "decision", "approver", "rationale"],
+      "properties": {
+        "tier": {"enum": ["L0", "L1", "L2", "L3"]},
+        "decision": {"enum": ["approved", "rejected"]},
+        "approver": {
+          "description": "Cross-reference: approval -> principal.",
+          "$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/principalId"
+        },
+        "subjects": {
+          "description": "Cross-reference: approval -> the IR nodes the decision is about.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/nodeId"}
+        },
+        "rationale": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"}
+      }
+    },
+    "attestation": {
+      "description": "Standards binding: supply-chain attestation, bill of materials or signature carried by reference.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "uri"],
+      "properties": {
+        "binding": {"enum": ["in-toto", "slsa", "spdx", "cyclonedx", "sigstore"]},
+        "predicate_type": {"type": "string"},
+        "uri": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/uri"},
+        "sha256": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/sha256"}
+      }
+    }
+  }
+}

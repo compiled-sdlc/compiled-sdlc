@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:compiled-sdlc:lifecycle-ir:0.1:common",
+  "version": "0.1.0",
+  "title": "Lifecycle IR common definitions",
+  "description": "Identifier grammars and shared value objects for the five Lifecycle IR structures. Every node in a bundle carries an identifier of the form <kind>:<slug>; the kind prefix is what makes a cross-structure reference typed, so a reference field can declare which kinds it accepts and the validator can enforce it.",
+  "$defs": {
+    "irVersion": {
+      "description": "Version of the IR specification a document conforms to.",
+      "const": "0.1.0"
+    },
+    "changeRequest": {
+      "description": "Identifier of the change request this bundle expresses.",
+      "type": "string",
+      "pattern": "^CR-[0-9]{3,}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri-reference",
+      "minLength": 1
+    },
+    "checkRef": {
+      "description": "Reference to an executable check held in bench/. The check itself is never part of the IR: the IR records that a clause is discharged by that check, not the check's contents.",
+      "type": "string",
+      "pattern": "^check:[a-z0-9][a-z0-9._/-]*$"
+    },
+    "actorId": {"type": "string", "pattern": "^actor:[a-z0-9][a-z0-9._-]*$"},
+    "goalId": {"type": "string", "pattern": "^goal:[a-z0-9][a-z0-9._-]*$"},
+    "behaviorId": {"type": "string", "pattern": "^behavior:[a-z0-9][a-z0-9._-]*$"},
+    "acceptanceId": {"type": "string", "pattern": "^acceptance:[a-z0-9][a-z0-9._-]*$"},
+    "exclusionId": {"type": "string", "pattern": "^exclusion:[a-z0-9][a-z0-9._-]*$"},
+    "questionId": {"type": "string", "pattern": "^question:[a-z0-9][a-z0-9._-]*$"},
+    "constraintId": {"type": "string", "pattern": "^constraint:[a-z0-9][a-z0-9._-]*$"},
+    "componentId": {"type": "string", "pattern": "^component:[a-z0-9][a-z0-9._-]*$"},
+    "editId": {"type": "string", "pattern": "^edit:[a-z0-9][a-z0-9._-]*$"},
+    "deploymentId": {"type": "string", "pattern": "^deployment:[a-z0-9][a-z0-9._-]*$"},
+    "rollbackId": {"type": "string", "pattern": "^rollback:[a-z0-9][a-z0-9._-]*$"},
+    "evidenceId": {"type": "string", "pattern": "^evidence:[a-z0-9][a-z0-9._-]*$"},
+    "entryId": {"type": "string", "pattern": "^entry:[a-z0-9][a-z0-9._-]*$"},
+    "principalId": {"type": "string", "pattern": "^principal:[a-z0-9][a-z0-9._-]*$"},
+    "intentSubjectId": {
+      "description": "A goal, behavior or acceptance condition: the intent nodes other structures are allowed to point at.",
+      "type": "string",
+      "pattern": "^(goal|behavior|acceptance):[a-z0-9][a-z0-9._-]*$"
+    },
+    "intentClauseId": {
+      "description": "A behavior or acceptance condition: the intent nodes a transformation claims to implement and evidence claims to discharge.",
+      "type": "string",
+      "pattern": "^(behavior|acceptance):[a-z0-9][a-z0-9._-]*$"
+    },
+    "obligationTargetId": {
+      "description": "An intent clause or a constraint: the two things evidence can discharge.",
+      "type": "string",
+      "pattern": "^(behavior|acceptance|constraint):[a-z0-9][a-z0-9._-]*$"
+    },
+    "transformationId": {
+      "description": "A code change or a deployment change.",
+      "type": "string",
+      "pattern": "^(edit|deployment):[a-z0-9][a-z0-9._-]*$"
+    },
+    "transformationOrRollbackId": {
+      "type": "string",
+      "pattern": "^(edit|deployment|rollback):[a-z0-9][a-z0-9._-]*$"
+    },
+    "nodeId": {
+      "description": "Any addressable node in a bundle.",
+      "type": "string",
+      "pattern": "^(actor|goal|behavior|acceptance|exclusion|question|constraint|component|edit|deployment|rollback|evidence|entry|principal):[a-z0-9][a-z0-9._-]*$"
+    },
+    "artifact": {
+      "description": "An external artifact referenced by the IR, identified by location and content hash.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uri"],
+      "properties": {
+        "uri": {"$ref": "#/$defs/uri"},
+        "media_type": {"type": "string"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

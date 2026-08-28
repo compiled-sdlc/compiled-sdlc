@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:compiled-sdlc:lifecycle-ir:0.1:transformation-plan",
+  "version": "0.1.0",
+  "title": "Transformation Plan",
+  "description": "How the change is made: the components it touches, the code changes as addressed operations rather than free text, the deployment changes as a signed transaction plan, the rollback that reverses them, and any delta the change applies back to the IR itself. Code edits are addressed either by tree-sitter node query or by an OpenRewrite recipe, so source remains a generated, buildable materialised view rather than the source of truth.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "ir_version", "change_request", "implements", "respects", "components", "code_changes", "rollback"],
+  "properties": {
+    "kind": {"const": "transformation_plan"},
+    "ir_version": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/irVersion"},
+    "change_request": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/changeRequest"},
+    "implements": {
+      "description": "Cross-reference: plan -> the intent clauses the plan as a whole realises.",
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/intentClauseId"}
+    },
+    "respects": {
+      "description": "Cross-reference: plan -> the constraints it is bounded by.",
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/constraintId"}
+    },
+    "components": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/component"}},
+    "code_changes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/codeChange"}},
+    "deployment_changes": {"type": "array", "items": {"$ref": "#/$defs/deploymentChange"}},
+    "rollback": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rollback"}},
+    "ir_delta": {"$ref": "#/$defs/irDelta"}
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "repository", "path"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/componentId"},
+        "name": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "repository": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/uri"},
+        "path": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "language": {"type": "string"},
+        "depends_on": {
+          "description": "Cross-reference: component -> component.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/componentId"}
+        }
+      }
+    },
+    "codeChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "component", "operation", "address", "implements"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/editId"},
+        "component": {
+          "description": "Cross-reference: code change -> component.",
+          "$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/componentId"
+        },
+        "summary": {"type": "string"},
+        "operation": {"enum": ["insert_before", "insert_after", "replace", "delete", "move", "apply_recipe"]},
+        "address": {
+          "oneOf": [
+            {"$ref": "#/$defs/treeSitterAddress"},
+            {"$ref": "#/$defs/openRewriteRecipe"}
+          ]
+        },
+        "payload": {
+          "description": "The material the operation inserts or substitutes. Absent for delete and apply_recipe.",
+          "type": "string"
+        },
+        "implements": {
+          "description": "Cross-reference: code change -> intent clause.",
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/intentClauseId"}
+        },
+        "respects": {
+          "description": "Cross-reference: code change -> constraint.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/constraintId"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"operation": {"enum": ["insert_before", "insert_after", "replace"]}}, "required": ["operation"]},
+          "then": {"required": ["payload"]}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "apply_recipe"}}, "required": ["operation"]},
+          "then": {"properties": {"address": {"$ref": "#/$defs/openRewriteRecipe"}}}
+        }
+      ]
+    },
+    "treeSitterAddress": {
+      "description": "Standards binding: node addressing by tree-sitter query, so the edit names a syntax node rather than a line range.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "file", "language", "query"],
+      "properties": {
+        "binding": {"const": "tree-sitter"},
+        "file": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "language": {"type": "string"},
+        "node_type": {"type": "string"},
+        "query": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "occurrence": {"type": "integer", "minimum": 1, "default": 1}
+      }
+    },
+    "openRewriteRecipe": {
+      "description": "Standards binding: an OpenRewrite recipe, for Java transformations that are already expressible as one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "recipe"],
+      "properties": {
+        "binding": {"const": "openrewrite"},
+        "recipe": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$"},
+        "artifact": {"type": "string"},
+        "options": {"type": "object"}
+      }
+    },
+    "deploymentChange": {
+      "description": "A deployment transaction plan compiled into infrastructure or controller operations, optionally signed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "binding", "target", "operations"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/deploymentId"},
+        "binding": {"enum": ["iac", "controller"]},
+        "target": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["action", "resource"],
+            "properties": {
+              "action": {"enum": ["create", "update", "delete", "scale", "restart"]},
+              "resource": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+              "parameters": {"type": "object"}
+            }
+          }
+        },
+        "depends_on": {
+          "description": "Cross-reference: deployment change -> the code changes it ships.",
+          "type": "array",
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/editId"}
+        },
+        "signature": {"$ref": "#/$defs/signature"}
+      }
+    },
+    "signature": {
+      "description": "Standards binding: Sigstore signature over the transaction plan.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "certificate_identity"],
+      "properties": {
+        "binding": {"const": "sigstore"},
+        "certificate_identity": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"},
+        "bundle": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/uri"}
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "reverses", "strategy", "procedure"],
+      "properties": {
+        "id": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/rollbackId"},
+        "reverses": {
+          "description": "Cross-reference: rollback -> the code and deployment changes it undoes.",
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/transformationId"}
+        },
+        "strategy": {"enum": ["revert_commit", "feature_flag", "redeploy_previous", "compensating_change"]},
+        "procedure": {"$ref": "urn:compiled-sdlc:lifecycle-ir:0.1:common#/$defs/text"}
+      }
+    },
+    "irDelta": {
+      "description": "Standards binding: the change this transformation applies back to the IR itself, as JSON Patch. This is how a projection edit or a discovered fact is absorbed into the canonical state.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "target", "patch"],
+      "properties": {
+        "binding": {"const": "json-patch"},
+        "target": {"enum": ["intent_graph", "constraint_graph", "transformation_plan", "evidence_graph", "provenance_ledger"]},
+        "patch": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["op", "path"],
+            "properties": {
+              "op": {"enum": ["add", "remove", "replace", "move", "copy", "test"]},
+              "path": {"type": "string", "pattern": "^/"},
+              "from": {"type": "string", "pattern": "^/"},
+              "value": true
+            }
+          }
+        },
+        "reason": {"type": "string"}
+      }
+    }
+  }
+}
