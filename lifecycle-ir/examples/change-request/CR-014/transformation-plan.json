@@ -1,0 +1,153 @@
+{
+  "kind": "transformation_plan",
+  "ir_version": "0.1.0",
+  "change_request": "CR-014",
+  "implements": [
+    "behavior:reject-excess-visit-creation",
+    "behavior:report-retry-after",
+    "behavior:allow-normal-rate"
+  ],
+  "respects": [
+    "constraint:no-new-external-dependency",
+    "constraint:p99-overhead",
+    "constraint:no-pii-in-logs",
+    "constraint:backward-compatible-api",
+    "constraint:limiter-state-cost"
+  ],
+  "components": [
+    {
+      "id": "component:visits-service",
+      "name": "Visits service",
+      "repository": "https://github.com/spring-petclinic/spring-petclinic-microservices",
+      "path": "spring-petclinic-visits-service",
+      "language": "java"
+    },
+    {
+      "id": "component:api-gateway",
+      "name": "API gateway",
+      "repository": "https://github.com/spring-petclinic/spring-petclinic-microservices",
+      "path": "spring-petclinic-api-gateway",
+      "language": "java",
+      "depends_on": ["component:visits-service"]
+    },
+    {
+      "id": "component:visits-deployment",
+      "name": "Visits service deployment manifests",
+      "repository": "https://github.com/spring-petclinic/spring-petclinic-microservices",
+      "path": "docker-compose.yml",
+      "language": "yaml",
+      "depends_on": ["component:visits-service"]
+    }
+  ],
+  "code_changes": [
+    {
+      "id": "edit:add-rate-limit-filter",
+      "component": "component:visits-service",
+      "summary": "Add a per-owner token bucket in front of visit creation, held in process memory.",
+      "operation": "insert_after",
+      "address": {
+        "binding": "tree-sitter",
+        "file": "spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/web/VisitResource.java",
+        "language": "java",
+        "node_type": "field_declaration",
+        "query": "(class_declaration name: (identifier) @class (#eq? @class \"VisitResource\") body: (class_body (field_declaration) @anchor))",
+        "occurrence": 1
+      },
+      "payload": "private final OwnerRateLimiter ownerRateLimiter = new OwnerRateLimiter(allowancePerMinute);",
+      "implements": ["behavior:reject-excess-visit-creation", "acceptance:429-after-limit"],
+      "respects": ["constraint:no-new-external-dependency", "constraint:limiter-state-cost"]
+    },
+    {
+      "id": "edit:reject-with-retry-after",
+      "component": "component:visits-service",
+      "summary": "Return 429 with Retry-After when the bucket is empty, logging only a salted owner hash.",
+      "operation": "replace",
+      "address": {
+        "binding": "tree-sitter",
+        "file": "spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/web/VisitResource.java",
+        "language": "java",
+        "node_type": "method_declaration",
+        "query": "(method_declaration name: (identifier) @name (#eq? @name \"create\")) @target",
+        "occurrence": 1
+      },
+      "payload": "@PostMapping(\"owners/{ownerId}/pets/{petId}/visits\")\npublic ResponseEntity<Visit> create(@RequestBody @Valid Visit visit, @PathVariable(\"ownerId\") int ownerId, @PathVariable(\"petId\") int petId) {\n    OwnerRateLimiter.Decision decision = ownerRateLimiter.admit(ownerId);\n    if (!decision.admitted()) {\n        log.info(\"visit creation throttled for owner {}\", ownerRateLimiter.hash(ownerId));\n        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)\n            .header(HttpHeaders.RETRY_AFTER, Long.toString(decision.retryAfterSeconds()))\n            .build();\n    }\n    visit.setPetId(petId);\n    return ResponseEntity.status(HttpStatus.CREATED).body(visitRepository.save(visit));\n}",
+      "implements": ["behavior:report-retry-after", "acceptance:retry-after-header"],
+      "respects": ["constraint:no-pii-in-logs", "constraint:backward-compatible-api"]
+    },
+    {
+      "id": "edit:configure-allowance",
+      "component": "component:visits-service",
+      "summary": "Set the per-owner allowance as configuration rather than a literal, at the value the review settled on.",
+      "operation": "apply_recipe",
+      "address": {
+        "binding": "openrewrite",
+        "recipe": "org.openrewrite.java.spring.AddSpringProperty",
+        "artifact": "org.openrewrite.recipe:rewrite-spring",
+        "options": {
+          "property": "petclinic.visits.rate-limit.per-minute",
+          "value": "20",
+          "pathExpressions": ["**/application.yml"]
+        }
+      },
+      "implements": ["behavior:allow-normal-rate", "acceptance:normal-rate-unaffected"],
+      "respects": ["constraint:p99-overhead"]
+    }
+  ],
+  "deployment_changes": [
+    {
+      "id": "deployment:visits-rollout",
+      "binding": "controller",
+      "target": "visits-service",
+      "operations": [
+        {
+          "action": "update",
+          "resource": "service/visits-service",
+          "parameters": {"image_tag": "cr-014", "strategy": "rolling"}
+        },
+        {
+          "action": "restart",
+          "resource": "service/visits-service",
+          "parameters": {"order": "one-at-a-time"}
+        }
+      ],
+      "depends_on": [
+        "edit:add-rate-limit-filter",
+        "edit:reject-with-retry-after",
+        "edit:configure-allowance"
+      ],
+      "signature": {
+        "binding": "sigstore",
+        "certificate_identity": "delivery-agent@compiled-sdlc.invalid",
+        "bundle": "runs/CR-014/deployment.sigstore.json"
+      }
+    }
+  ],
+  "rollback": [
+    {
+      "id": "rollback:disable-limiter",
+      "reverses": ["edit:add-rate-limit-filter", "deployment:visits-rollout"],
+      "strategy": "feature_flag",
+      "procedure": "Set petclinic.visits.rate-limit.per-minute to zero, which admits every request, and let the running instances pick the value up without a redeploy."
+    },
+    {
+      "id": "rollback:revert-edits",
+      "reverses": ["edit:reject-with-retry-after", "edit:configure-allowance"],
+      "strategy": "revert_commit",
+      "procedure": "Revert the commit materialised from this plan and redeploy the previous image tag."
+    }
+  ],
+  "ir_delta": {
+    "binding": "json-patch",
+    "target": "intent_graph",
+    "reason": "The allowance question was settled during the incident review. The answer is absorbed into the intent graph as a transaction rather than left in a comment on the change; this is the reconciliation path that keeps the IR canonical.",
+    "patch": [
+      {"op": "test", "path": "/open_questions/0/id", "value": "question:allowance-value"},
+      {"op": "replace", "path": "/open_questions/0/status", "value": "resolved"},
+      {
+        "op": "add",
+        "path": "/open_questions/0/resolution",
+        "value": "Twenty per minute: the incident review settled on the observed peak plus headroom, and the value stays configurable. Absorbed into this graph by the transformation plan's IR delta."
+      }
+    ]
+  }
+}

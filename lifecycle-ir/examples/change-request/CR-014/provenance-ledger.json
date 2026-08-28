@@ -1,0 +1,226 @@
+{
+  "kind": "provenance_ledger",
+  "ir_version": "0.1.0",
+  "change_request": "CR-014",
+  "principals": [
+    {
+      "id": "principal:delivery-agent",
+      "type": "agent",
+      "name": "Lifecycle delivery agent",
+      "version": "0.1.0",
+      "role": "Compiles intent into a plan and executes the plan."
+    },
+    {
+      "id": "principal:verification-agent",
+      "type": "agent",
+      "name": "Verification agent",
+      "version": "0.1.0",
+      "role": "Runs the verification portfolio and records what it observed."
+    },
+    {
+      "id": "principal:code-model",
+      "type": "model",
+      "name": "Pinned code model for the experiment",
+      "version": "recorded in bench/executor.lock",
+      "role": "Generates the material behind each transformation."
+    },
+    {
+      "id": "principal:build-system",
+      "type": "tool",
+      "name": "Maven",
+      "version": "3.9.9",
+      "role": "Builds the materialised source and produces the bill of materials."
+    },
+    {
+      "id": "principal:on-call-sre",
+      "type": "human",
+      "name": "On-call site reliability engineer",
+      "role": "Decides rollout at autonomy tier L2."
+    }
+  ],
+  "entries": [
+    {
+      "id": "entry:compile-intent",
+      "sequence": 1,
+      "action": "generate",
+      "principal": "principal:delivery-agent",
+      "summary": "Compiled the incident report and change request into the intent and constraint graphs.",
+      "input_artifacts": [
+        {
+          "uri": "bench/change-requests/CR-014.yaml",
+          "media_type": "application/yaml",
+          "sha256": "0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d"
+        },
+        {
+          "uri": "bench/incidents/2026-08-19-visits-pool-exhaustion.md",
+          "media_type": "text/markdown",
+          "sha256": "1b2c3d4e1b2c3d4e1b2c3d4e1b2c3d4e1b2c3d4e1b2c3d4e1b2c3d4e1b2c3d4e"
+        }
+      ],
+      "confidence": 0.88,
+      "recorded_at": "2026-08-27T09:05:00Z"
+    },
+    {
+      "id": "entry:plan-transformation",
+      "sequence": 2,
+      "previous": "entry:compile-intent",
+      "action": "transform",
+      "principal": "principal:delivery-agent",
+      "summary": "Produced the addressed code changes from the intent clauses, inside the declared constraints.",
+      "input_nodes": [
+        "behavior:reject-excess-visit-creation",
+        "behavior:report-retry-after",
+        "behavior:allow-normal-rate",
+        "constraint:no-new-external-dependency",
+        "constraint:no-pii-in-logs"
+      ],
+      "covers": [
+        "edit:add-rate-limit-filter",
+        "edit:reject-with-retry-after",
+        "edit:configure-allowance"
+      ],
+      "confidence": 0.81,
+      "recorded_at": "2026-08-27T09:41:00Z"
+    },
+    {
+      "id": "entry:register-rollback",
+      "sequence": 3,
+      "previous": "entry:plan-transformation",
+      "action": "generate",
+      "principal": "principal:delivery-agent",
+      "summary": "Recorded how each transformation is undone before any of it was applied.",
+      "covers": ["rollback:disable-limiter", "rollback:revert-edits"],
+      "confidence": 0.9,
+      "recorded_at": "2026-08-27T09:44:00Z"
+    },
+    {
+      "id": "entry:verify-tests",
+      "sequence": 4,
+      "previous": "entry:register-rollback",
+      "action": "verify",
+      "principal": "principal:verification-agent",
+      "summary": "Ran the checks named by the acceptance conditions against the materialised source.",
+      "input_nodes": [
+        "acceptance:429-after-limit",
+        "acceptance:retry-after-header",
+        "acceptance:normal-rate-unaffected"
+      ],
+      "attests": [
+        "evidence:test-exceeds-allowance",
+        "evidence:test-retry-after",
+        "evidence:test-under-allowance"
+      ],
+      "attestations": [
+        {
+          "binding": "in-toto",
+          "predicate_type": "https://in-toto.io/attestation/test-result/v0.1",
+          "uri": "runs/CR-014/attestations/test-result.intoto.jsonl",
+          "sha256": "2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f"
+        }
+      ],
+      "recorded_at": "2026-08-27T10:13:30Z"
+    },
+    {
+      "id": "entry:verify-analysis",
+      "sequence": 5,
+      "previous": "entry:verify-tests",
+      "action": "verify",
+      "principal": "principal:verification-agent",
+      "summary": "Ran the contract, dependency and logging policies over the plan and its output.",
+      "input_nodes": [
+        "constraint:backward-compatible-api",
+        "constraint:no-new-external-dependency",
+        "constraint:no-pii-in-logs"
+      ],
+      "attests": [
+        "evidence:contract-diff",
+        "evidence:dependency-policy",
+        "evidence:log-field-policy"
+      ],
+      "attestations": [
+        {
+          "binding": "in-toto",
+          "predicate_type": "https://in-toto.io/attestation/vulns/v0.1",
+          "uri": "runs/CR-014/attestations/analysis.intoto.jsonl",
+          "sha256": "3d4e5f6a3d4e5f6a3d4e5f6a3d4e5f6a3d4e5f6a3d4e5f6a3d4e5f6a3d4e5f6a"
+        }
+      ],
+      "recorded_at": "2026-08-27T10:15:00Z"
+    },
+    {
+      "id": "entry:build-and-sign",
+      "sequence": 6,
+      "previous": "entry:verify-analysis",
+      "action": "generate",
+      "principal": "principal:build-system",
+      "summary": "Built the image from the materialised source, produced its bill of materials, and signed the deployment transaction plan.",
+      "input_nodes": ["component:visits-service", "deployment:visits-rollout"],
+      "covers": ["deployment:visits-rollout"],
+      "attestations": [
+        {
+          "binding": "slsa",
+          "predicate_type": "https://slsa.dev/provenance/v1",
+          "uri": "runs/CR-014/attestations/build.slsa.json",
+          "sha256": "4e5f6a7b4e5f6a7b4e5f6a7b4e5f6a7b4e5f6a7b4e5f6a7b4e5f6a7b4e5f6a7b"
+        },
+        {
+          "binding": "cyclonedx",
+          "uri": "runs/CR-014/attestations/visits-service.cdx.json",
+          "sha256": "5f6a7b8c5f6a7b8c5f6a7b8c5f6a7b8c5f6a7b8c5f6a7b8c5f6a7b8c5f6a7b8c"
+        },
+        {
+          "binding": "sigstore",
+          "uri": "runs/CR-014/deployment.sigstore.json",
+          "sha256": "6a7b8c9d6a7b8c9d6a7b8c9d6a7b8c9d6a7b8c9d6a7b8c9d6a7b8c9d6a7b8c9d"
+        }
+      ],
+      "recorded_at": "2026-08-27T10:40:00Z"
+    },
+    {
+      "id": "entry:approve-rollout",
+      "sequence": 7,
+      "previous": "entry:build-and-sign",
+      "action": "approve",
+      "principal": "principal:on-call-sre",
+      "summary": "Approved the rollout on the generated projection of the plan and its evidence.",
+      "input_nodes": ["evidence:contract-diff", "evidence:test-exceeds-allowance"],
+      "attests": ["evidence:rollout-review"],
+      "approval": {
+        "tier": "L2",
+        "decision": "approved",
+        "approver": "principal:on-call-sre",
+        "subjects": [
+          "deployment:visits-rollout",
+          "acceptance:429-after-limit",
+          "constraint:p99-overhead"
+        ],
+        "rationale": "The allowance carries headroom over the busiest observed clinic, the contract diff is additive only, and the limiter can be disabled by configuration without a redeploy."
+      },
+      "recorded_at": "2026-08-27T10:52:00Z"
+    },
+    {
+      "id": "entry:deploy-rollout",
+      "sequence": 8,
+      "previous": "entry:approve-rollout",
+      "action": "deploy",
+      "principal": "principal:delivery-agent",
+      "summary": "Executed the signed transaction plan and observed the service under the soak profile.",
+      "input_nodes": ["deployment:visits-rollout"],
+      "covers": ["deployment:visits-rollout"],
+      "attests": ["evidence:soak-trace", "evidence:latency-overhead"],
+      "confidence": 0.94,
+      "recorded_at": "2026-08-27T11:10:00Z"
+    },
+    {
+      "id": "entry:reconcile-intent",
+      "sequence": 9,
+      "previous": "entry:deploy-rollout",
+      "action": "reconcile",
+      "principal": "principal:delivery-agent",
+      "summary": "Applied the plan's JSON Patch delta so the settled allowance question lives in the intent graph rather than in the change discussion.",
+      "input_nodes": ["question:allowance-value", "behavior:reject-excess-visit-creation"],
+      "confidence": 0.97,
+      "recorded_at": "2026-08-27T11:25:00Z"
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "kind": "intent_graph",
+  "ir_version": "0.1.0",
+  "change_request": "CR-014",
+  "title": "Rate-limit visit creation per owner after the connection-pool incident",
+  "actors": [
+    {
+      "id": "actor:clinic-staff",
+      "name": "Clinic staff",
+      "type": "human",
+      "description": "Records visits through the client application during a consultation."
+    },
+    {
+      "id": "actor:visits-service",
+      "name": "Visits service",
+      "type": "service",
+      "description": "Owns visit records and the endpoint that creates them."
+    },
+    {
+      "id": "actor:site-reliability",
+      "name": "On-call site reliability engineer",
+      "type": "human",
+      "description": "Carries the availability of the deployed system."
+    }
+  ],
+  "goals": [
+    {
+      "id": "goal:protect-availability",
+      "statement": "A single misbehaving client must not be able to exhaust the visits service connection pool.",
+      "priority": "must",
+      "stakeholders": ["actor:site-reliability", "actor:clinic-staff"],
+      "motivation": "A client retry loop created visits without backoff and saturated the pool, taking visit creation down for every clinic."
+    },
+    {
+      "id": "goal:preserve-clinic-workflow",
+      "statement": "Recording visits at the pace of an ordinary consultation must be unaffected by the protection.",
+      "priority": "must",
+      "stakeholders": ["actor:clinic-staff"]
+    }
+  ],
+  "behaviors": [
+    {
+      "id": "behavior:reject-excess-visit-creation",
+      "statement": "Visit creation beyond the configured per-owner rate is rejected with 429 rather than admitted to the pool.",
+      "satisfies": ["goal:protect-availability"],
+      "actors": ["actor:visits-service", "actor:clinic-staff"],
+      "contracts": [
+        {
+          "binding": "openapi",
+          "document": "bench/contracts/visits-service.openapi.yaml",
+          "specification_version": "3.1.0",
+          "pointer": "#/paths/~1owners~1{ownerId}~1pets~1{petId}~1visits/post/responses/429",
+          "operation": "createVisit"
+        }
+      ]
+    },
+    {
+      "id": "behavior:report-retry-after",
+      "statement": "A rejected request carries a Retry-After header stating when the caller may try again.",
+      "satisfies": ["goal:protect-availability"],
+      "actors": ["actor:visits-service"],
+      "contracts": [
+        {
+          "binding": "openapi",
+          "document": "bench/contracts/visits-service.openapi.yaml",
+          "specification_version": "3.1.0",
+          "pointer": "#/paths/~1owners~1{ownerId}~1pets~1{petId}~1visits/post/responses/429/headers/Retry-After",
+          "operation": "createVisit"
+        }
+      ]
+    },
+    {
+      "id": "behavior:allow-normal-rate",
+      "statement": "Visit creation at or below the configured rate succeeds with the response it returned before the change.",
+      "satisfies": ["goal:preserve-clinic-workflow"],
+      "actors": ["actor:clinic-staff", "actor:visits-service"],
+      "contracts": [
+        {
+          "binding": "openapi",
+          "document": "bench/contracts/visits-service.openapi.yaml",
+          "specification_version": "3.1.0",
+          "pointer": "#/paths/~1owners~1{ownerId}~1pets~1{petId}~1visits/post/responses/201",
+          "operation": "createVisit"
+        }
+      ]
+    }
+  ],
+  "acceptance_conditions": [
+    {
+      "id": "acceptance:429-after-limit",
+      "statement": "The request after the configured per-minute allowance for one owner is answered 429 and creates no visit.",
+      "verifies": ["behavior:reject-excess-visit-creation"],
+      "check": {
+        "binding": "test",
+        "ref": "check:visits.rate-limit.exceeds",
+        "description": "Integration test driving one owner past the allowance within a minute."
+      }
+    },
+    {
+      "id": "acceptance:retry-after-header",
+      "statement": "Every 429 from visit creation carries a Retry-After header with a positive whole number of seconds.",
+      "verifies": ["behavior:report-retry-after"],
+      "check": {"binding": "test", "ref": "check:visits.rate-limit.retry-after"}
+    },
+    {
+      "id": "acceptance:normal-rate-unaffected",
+      "statement": "Visit creation at the observed clinic peak of twelve requests per minute per owner succeeds with 201 throughout.",
+      "verifies": ["behavior:allow-normal-rate"],
+      "check": {"binding": "test", "ref": "check:visits.rate-limit.under-limit"}
+    },
+    {
+      "id": "acceptance:contract-unchanged",
+      "statement": "The success path of the visit creation operation is unchanged: no removed field, no narrowed type, no new required request property.",
+      "verifies": ["goal:preserve-clinic-workflow"],
+      "check": {
+        "binding": "analysis",
+        "ref": "check:visits.openapi.compatibility",
+        "description": "Contract diff of the generated OpenAPI document against the pinned baseline."
+      }
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "exclusion:no-clinic-wide-quota",
+      "statement": "A clinic-wide or global quota is out of scope; the allowance is per owner.",
+      "scopes": ["goal:protect-availability"]
+    },
+    {
+      "id": "exclusion:no-client-backoff-change",
+      "statement": "Changing the client's retry behaviour is out of scope for this change request.",
+      "scopes": ["goal:protect-availability", "behavior:reject-excess-visit-creation"]
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "question:allowance-value",
+      "question": "Should the allowance be the twenty requests per minute proposed in review, or the twelve per minute observed at the busiest clinic?",
+      "status": "resolved",
+      "blocks": ["behavior:reject-excess-visit-creation", "acceptance:429-after-limit"],
+      "resolution": "Twenty per minute: the incident review settled on the observed peak plus headroom, and the value stays configurable. Absorbed into this graph by the transformation plan's IR delta."
+    }
+  ]
+}

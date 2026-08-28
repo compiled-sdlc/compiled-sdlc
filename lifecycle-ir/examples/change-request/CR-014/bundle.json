@@ -1,0 +1,15 @@
+{
+  "kind": "lifecycle_ir_bundle",
+  "ir_version": "0.1.0",
+  "change_request": "CR-014",
+  "title": "Rate-limit visit creation per owner after the connection-pool incident",
+  "description": "An incident-driven change against the visits service of the target application, expressed entirely in the Lifecycle IR. It exists to exercise every cross-structure reference the IR defines: intent through constraint, transformation, evidence and provenance, and back into the intent graph through a JSON Patch delta that absorbs the resolved question.",
+  "created_at": "2026-08-27T09:00:00Z",
+  "documents": {
+    "intent_graph": "intent-graph.json",
+    "constraint_graph": "constraint-graph.json",
+    "transformation_plan": "transformation-plan.json",
+    "evidence_graph": "evidence-graph.json",
+    "provenance_ledger": "provenance-ledger.json"
+  }
+}

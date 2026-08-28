@@ -1,0 +1,84 @@
+{
+  "kind": "constraint_graph",
+  "ir_version": "0.1.0",
+  "change_request": "CR-014",
+  "risk": {
+    "class": "elevated",
+    "autonomy_tier": "L2",
+    "change_class": "normal",
+    "rationale": "The change sits on the request path of a customer-facing write operation and can reject legitimate traffic if the allowance is wrong. Evidence may be gathered autonomously, but the rollout is approved by a human on that evidence."
+  },
+  "constraints": [
+    {
+      "id": "constraint:no-new-external-dependency",
+      "category": "architecture",
+      "statement": "The limiter must be implemented with the libraries already on the visits service classpath; no new external service and no new third-party dependency.",
+      "obligation": "must",
+      "severity": "high",
+      "applies_to": ["goal:protect-availability", "behavior:reject-excess-visit-creation"],
+      "policy": {
+        "binding": "rego",
+        "module": "sdlc.policy.dependencies",
+        "entrypoint": "deny_new_dependency",
+        "uri": "bench/policies/dependencies.rego"
+      },
+      "source": "Architecture decision record 4: no new runtime dependencies in the target application services."
+    },
+    {
+      "id": "constraint:p99-overhead",
+      "category": "performance",
+      "statement": "The limiter must add less than five milliseconds to the p99 latency of visit creation under the soak profile.",
+      "obligation": "must",
+      "severity": "medium",
+      "applies_to": ["behavior:reject-excess-visit-creation", "behavior:allow-normal-rate"],
+      "threshold": {
+        "metric": "visit creation p99 latency overhead",
+        "operator": "lt",
+        "value": 5,
+        "unit": "ms"
+      }
+    },
+    {
+      "id": "constraint:no-pii-in-logs",
+      "category": "privacy",
+      "statement": "Rejection logging must not record owner or pet identifying data; the owner identifier may appear only as a salted hash.",
+      "obligation": "must",
+      "severity": "high",
+      "applies_to": ["behavior:report-retry-after"],
+      "policy": {
+        "binding": "cedar",
+        "module": "petclinic::logging",
+        "entrypoint": "permit_log_field",
+        "uri": "bench/policies/logging.cedar"
+      }
+    },
+    {
+      "id": "constraint:backward-compatible-api",
+      "category": "compatibility",
+      "statement": "The visit creation contract must remain backward compatible: the 429 response is additive and the success path is untouched.",
+      "obligation": "must",
+      "severity": "critical",
+      "applies_to": ["goal:preserve-clinic-workflow", "acceptance:contract-unchanged"],
+      "policy": {
+        "binding": "rego",
+        "module": "sdlc.policy.contracts",
+        "entrypoint": "deny_breaking_change",
+        "uri": "bench/policies/contracts.rego"
+      }
+    },
+    {
+      "id": "constraint:limiter-state-cost",
+      "category": "cost",
+      "statement": "Limiter state should stay in process memory rather than adding a cache tier to the deployment.",
+      "obligation": "should",
+      "severity": "low",
+      "applies_to": ["goal:protect-availability"],
+      "threshold": {
+        "metric": "additional monthly infrastructure spend",
+        "operator": "eq",
+        "value": 0,
+        "unit": "USD"
+      }
+    }
+  ]
+}
