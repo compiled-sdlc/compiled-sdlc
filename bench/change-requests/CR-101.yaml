@@ -3,6 +3,7 @@ title: Pet update applies to the pet named in the path
 category: bug_fix
 module: customers
 risk_class: standard
+needs_stack: false
 
 statement: |
   Updating a pet ignores the pet identifier in the request path. The update

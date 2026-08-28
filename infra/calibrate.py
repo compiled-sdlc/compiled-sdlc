@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""Calibrate the change-request set against the pristine pin.
+
+A hidden acceptance check earns its place only if it is red before the change
+and green after it. One that passes on the unmodified application cannot tell a
+successful run from an agent that did nothing, and would credit every arm with
+a success it did not earn. A `must` invariant has to hold the other way round:
+it must pass on the pristine pin, or every run starts already in violation.
+
+So, for each change request, against a fresh workspace at the pin and with no
+change applied:
+
+  - the module's own test suite must pass;
+  - every `must` invariant must pass;
+  - every hidden acceptance check must fail, and fail by assertion rather than
+    by failing to compile — a check that does not build is not a discriminator.
+
+The result is written to bench/calibration.json.
+
+    python infra/calibrate.py [--change-request CR-101 ...] [--output PATH]
+"""
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from pipelines.common import changerequests, locks, verify  # noqa: E402
+from pipelines.common import workspace as workspace_module  # noqa: E402
+
+OUTPUT = locks.REPO_ROOT / "bench" / "calibration.json"
+COMPILATION_MARKERS = ("COMPILATION ERROR", "Compilation failure", "cannot find symbol")
+
+
+def compiled(detail: str) -> bool:
+    """Whether a failing run got as far as running the tests."""
+    return not any(marker in detail for marker in COMPILATION_MARKERS)
+
+
+def calibrate(request: changerequests.ChangeRequest, cell: Path, timeout: float) -> dict:
+    """Run one change request's ground truth against the unmodified pin."""
+    workspace = workspace_module.create(cell)
+    module_path = request.module_path
+    findings: list[str] = []
+    started = time.monotonic()
+    try:
+        suite = verify.run_module_tests(workspace, module_path, [], timeout)
+        if suite["status"] != verify.PASS:
+            findings.append(f"the module's own suite is {suite['status']} on the pristine pin")
+
+        changes = workspace_module.changes(workspace)
+        invariants = [
+            verify.check_invariant(item, request, workspace, changes, module_tests=suite["status"])
+            for item in request.must_invariants
+        ]
+        for item in invariants:
+            if item["status"] != verify.PASS:
+                findings.append(f"{item['id']} is {item['status']} before any change")
+
+        placed = verify.place(request.acceptance, workspace)
+        try:
+            acceptance = verify.run_module_tests(
+                workspace,
+                module_path,
+                [check.simple_class_name for check in request.acceptance],
+                timeout,
+            )
+        finally:
+            verify.withdraw(placed)
+
+        if acceptance["status"] == verify.PASS:
+            findings.append(
+                "the hidden checks pass on the unmodified pin, so they cannot "
+                "discriminate a real change from no change at all"
+            )
+        elif acceptance["status"] == verify.ERROR:
+            findings.append(f"the hidden checks could not be run: {acceptance['detail'][:200]}")
+        elif not compiled(acceptance["detail"]):
+            findings.append(
+                "the hidden checks do not compile against the pin, so they are red "
+                "for the wrong reason"
+            )
+    finally:
+        workspace_module.remove(workspace)
+
+    return {
+        "change_request": request.id,
+        "module": module_path,
+        "needs_stack": request.needs_stack,
+        "module_suite": suite["status"],
+        "invariants": [
+            {"id": item["id"], "kind": item["kind"], "status": item["status"]}
+            for item in invariants
+        ],
+        "acceptance": {
+            "status": acceptance["status"],
+            "checks": [check.id for check in request.acceptance],
+            "reports": acceptance.get("reports", {}),
+            "compiled": compiled(acceptance.get("detail", "")),
+        },
+        "calibrated": not findings,
+        "findings": findings,
+        "duration_seconds": round(time.monotonic() - started, 1),
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--change-request", action="append", help="repeatable; default all")
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--timeout", type=float, default=1800)
+    parser.add_argument("--runs", type=Path, default=locks.REPO_ROOT / "runs" / "calibration")
+    arguments = parser.parse_args(argv)
+
+    problem = verify.toolchain_problem()
+    if problem:
+        print(f"cannot calibrate: {problem}", file=sys.stderr)
+        return 2
+
+    requests = changerequests.load_all()
+    if arguments.change_request:
+        wanted = set(arguments.change_request)
+        requests = [request for request in requests if request.id in wanted]
+
+    results = []
+    for request in requests:
+        print(f"calibrating {request.id} ({request.module_path})", flush=True)
+        result = calibrate(request, arguments.runs / request.id, arguments.timeout)
+        results.append(result)
+        mark = "ok  " if result["calibrated"] else "FAIL"
+        held = all(item["status"] == "pass" for item in result["invariants"])
+        print(
+            f"  {mark} suite={result['module_suite']}"
+            f"  invariants={'all pass' if held else 'NOT all pass'}"
+            f"  hidden checks={result['acceptance']['status']}"
+            f"  ({result['duration_seconds']}s)"
+        )
+        for finding in result["findings"]:
+            print(f"       {finding}")
+
+    record = {
+        "schema_version": 1,
+        "calibrated_on": time.strftime("%Y-%m-%d"),
+        "commit": locks.target()["target"]["commit"],
+        "rule": (
+            "every hidden acceptance check must fail on the unmodified pin and every "
+            "must-invariant must pass, or the check cannot discriminate"
+        ),
+        "change_requests": results,
+    }
+    arguments.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+    calibrated = sum(1 for result in results if result["calibrated"])
+    print(
+        f"\n{calibrated}/{len(results)} calibrated; recorded in "
+        f"{arguments.output.relative_to(locks.REPO_ROOT)}"
+    )
+    return 0 if calibrated == len(results) else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -3,6 +3,7 @@ title: List an owner's pets
 category: feature
 module: customers
 risk_class: low
+needs_stack: false
 
 statement: |
   There is no way to ask the customers service for all of an owner's pets. A

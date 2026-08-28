@@ -145,9 +145,19 @@ def withdraw(placed: list[Path]) -> None:
 
 
 def test_command(module_path: str, test_classes: list[str]) -> list[str]:
-    """The build's own test command, from the pin, for these test classes."""
-    template = locks.target()["test"]["module_test_command"]
-    rendered = template.format(module=module_path, tests=",".join(test_classes))
+    """The build's own test command, from the pin.
+
+    With no classes named, the module's whole suite runs; naming them selects
+    just those. The two are different commands in the pin, not one command with
+    an empty argument.
+    """
+    settings = locks.target()["test"]
+    if test_classes:
+        rendered = settings["module_test_command"].format(
+            module=module_path, tests=",".join(test_classes)
+        )
+    else:
+        rendered = settings["module_suite_command"].format(module=module_path)
     return rendered.split()
 
 

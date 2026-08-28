@@ -1,24 +1,30 @@
 id: CR-104
-title: Keep visit descriptions out of the logs
+title: Make the visit creation log line identify the visit, without its description
 category: non_functional
 module: visits
 risk_class: elevated
+needs_stack: false
 
 statement: |
-  Creating a visit writes the whole visit to the application log at info level,
-  including its free-text description. That description is where clinical detail
-  about an animal and its owner ends up, and the log is shipped off the host and
-  retained.
+  Creating a visit logs the visit object itself, which renders as the type name
+  and an identity hash. The line says a visit was saved and nothing about which
+  one: it cannot be correlated with a request, an owner or a pet, so it is no
+  use during an incident.
 
-  Stop the description reaching the log. Creating a visit must still log that it
-  happened, at info level, identifying the visit by its pet identifier — but no
-  log line the operation writes may contain the description text.
+  Make the line identify the visit by the pet identifier it was created for. No
+  object identity hash may appear in it.
+
+  The description must stay out of the log. It is free text where clinical
+  detail about an animal and its owner ends up, and the log is shipped off the
+  host and retained. Logging the visit object is one refactor away from
+  printing it — give the line the fields it needs instead of the record.
 
   The response to the caller does not change: the created visit is still
   answered in full, description included.
 
 context: |
-  The behaviour is in the visit creation operation of the visits service.
+  The behaviour is in the visit creation operation of the visits service. It
+  logs at info level today and must go on doing so.
 
 must_invariants:
   - id: invariant:existing-tests-pass
@@ -32,12 +38,15 @@ must_invariants:
     paths:
       - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/web/VisitResource.java
     pattern: "log\\.info"
-    statement: The operation must still record that a visit was created; silence is not the fix.
-  - id: invariant:description-still-persisted
+    statement: The operation must still record that a visit was created, at info level; silence is not the fix.
+  - id: invariant:record-type-unchanged
     kind: file_unchanged
     paths:
       - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/model/Visit.java
-    statement: The description is still stored and still returned; only the log changes.
+    statement: >-
+      The fix belongs in the operation that writes the line, not in the record.
+      Teaching the record to render itself would put the description one call
+      away from every log statement that touches it.
   - id: invariant:visits-service-only
     kind: paths_untouched
     prefixes:
@@ -47,8 +56,11 @@ must_invariants:
     statement: The change belongs in the visits service.
 
 acceptance:
-  - id: check:visits.create.description-not-logged
+  - id: check:visits.create.log-line-identifies-the-visit
     source: bench/checks/CR-104/VisitLoggingAcceptanceTest.java
     destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/VisitLoggingAcceptanceTest.java
     test_class: org.springframework.samples.petclinic.visits.web.VisitLoggingAcceptanceTest
-    statement: No log line from the creation carries the description, the creation is still logged, and the response still carries it.
+    statement: >-
+      The creation is still logged at info, the line carries the pet identifier
+      and no identity hash, no line carries the description, and the response
+      still returns it.

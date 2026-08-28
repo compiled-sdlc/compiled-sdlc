@@ -5,7 +5,7 @@ UV ?= uv
 
 .DEFAULT_GOAL := all
 .PHONY: all help setup scaffold lint fmt test audit install-hook \
-        schemas bench-setup bench-status bench-validate bench bench-plan smoke stack-start stack-stop stack-status eval manuscript clean
+        schemas bench-setup bench-status bench-validate calibrate bench bench-plan smoke stack-start stack-stop stack-status eval manuscript clean
 
 all: lint test audit
 
@@ -21,6 +21,7 @@ help:
 	@echo "bench-setup   clone the target application at its pin and check it builds and starts"
 	@echo "bench-status  report whether the local checkout matches the pin"
 	@echo "bench-validate check the change-request set against its schema and the pin"
+	@echo "calibrate     check every hidden check is red on the pristine pin"
 	@echo "bench         run the change-request set across the arms"
 	@echo "bench-plan    list the cells a run would cover, and which are pending"
 	@echo "smoke         prove the executor plumbing with one trivial run"
@@ -58,6 +59,9 @@ schemas:
 
 bench-validate:
 	@$(UV) run python -m pipelines.common.changerequests
+
+calibrate:
+	$(UV) run python infra/calibrate.py $(CALIBRATE_FLAGS)
 
 bench-setup:
 	$(UV) run python infra/bench_setup.py $(BENCH_SETUP_FLAGS)

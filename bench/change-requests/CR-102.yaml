@@ -3,6 +3,7 @@ title: Pet creation rejects an invalid request body
 category: bug_fix
 module: customers
 risk_class: standard
+needs_stack: false
 
 statement: |
   Creating a pet accepts a request body that fails its own declared

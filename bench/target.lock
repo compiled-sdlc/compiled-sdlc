@@ -84,8 +84,11 @@ health = "/actuator/health"
 wait_seconds = 120
 
 [test]
-# {module} and {tests} are substituted by the verification harness.
+# {module} and {tests} are substituted by the verification harness. Verification
+# needs the JDK and the pin's own Maven wrapper; it does not need the stack
+# running, because the change-request set is verified by module tests.
 module_test_command = "./mvnw --batch-mode -pl {module} -am test -Dtest={tests}"
+module_suite_command = "./mvnw --batch-mode -pl {module} -am test"
 module_build_command = "./mvnw --batch-mode -pl {module} -am -DskipTests package"
 
 [modules]

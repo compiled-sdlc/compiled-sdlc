@@ -252,6 +252,12 @@ def test_the_test_command_comes_from_the_pin():
     assert "-Dtest=OneTest,TwoTest" in command
 
 
+def test_naming_no_classes_runs_the_whole_module_suite():
+    command = verify.test_command(MODULE, [])
+    assert not any(part.startswith("-Dtest") for part in command), "not an empty selection"
+    assert command[-1] == "test"
+
+
 # --- the success rule ------------------------------------------------------
 
 

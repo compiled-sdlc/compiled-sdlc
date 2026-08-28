@@ -3,6 +3,7 @@ title: Bound the batch visit lookup
 category: incident
 module: visits
 risk_class: elevated
+needs_stack: false
 
 statement: |
   During an incident, a caller asked the visits service for the visits of
