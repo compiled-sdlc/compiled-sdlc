@@ -11,10 +11,10 @@ lifecycle cost** — total model, tool, and weighted human-review cost across al
 attempts, divided by the number of change requests that pass hidden acceptance
 tests without violating a `must` invariant.
 
-Status: the IR schemas, their validator, and the benchmark harness are in
-place; the four arms are not. No experimental results have been produced yet;
-none are reported here or anywhere else in the repository until `eval/`
-computes them from recorded runs.
+Status: the IR schemas, their validator, the benchmark harness and the four
+arms are in place. No experimental results have been produced yet; none are
+reported here or anywhere else in the repository until `eval/` computes them
+from recorded runs on the full change-request set.
 
 ## Quickstart
 
@@ -73,6 +73,36 @@ every cross-reference the IR defines and what the validator enforces;
 `lifecycle-ir/examples/change-request/CR-014/` is one change request expressed
 fully in IR, exercising all of them.
 
+## The four arms
+
+An arm decides how a change request is represented, and nothing else. The model,
+the tool set, the three budgets, the workspace, the verification and the record
+are identical for all four, so a difference in what they cost is a difference
+their representation has to account for.
+
+| Arm | The change request arrives as | Edits are |
+|---|---|---|
+| `baseline` | Prose in the prompt | Free-form, with the build output as feedback |
+| `lcir` | A typed Lifecycle IR bundle in the workspace | Addressed operations, stated as a transformation plan before they are made |
+| `lcir_no_ast` | The same typed bundle | Free-form |
+| `compressed` | One minified line, keys abbreviated | Free-form |
+
+`lcir_no_ast` is the ablation: it separates what typing the intent buys from
+what structuring the edits buys. Every arm is given the same content — the same
+statement, the same observable behaviours, the same stated boundaries — and a
+test holds them to it.
+
+Prompt tuning is bounded and equal: each arm has the same allowance of template
+revisions, recorded with the digest of its frozen template in
+`bench/prompt-allowance.json`. An arm that had more attention spent on it would
+win on effort rather than on representation.
+
+After a run, the IR arms write what verification observed into an evidence
+graph, record who did what in a provenance ledger, assemble and validate the
+whole bundle, and render the projections in `projections/` — a user story, a
+change summary and an incident note, generated from the IR rather than
+maintained beside it.
+
 ## How a run works
 
 One run is one change request, put to one arm, at one seed.
@@ -93,11 +123,23 @@ One run is one change request, put to one arm, at one seed.
    in the worktree, and what verification decided.
 
 A run is a verified success only if every acceptance check passes and no `must`
-invariant was violated. A cell the apparatus could not complete — a rate limit,
-an exhausted balance, a timeout — is recorded as aborted with the class of
-failure, and is never counted as a failure of the agent. The matrix is
-resumable: a cell with a terminal record is skipped, so an interrupted run is
-continued by invoking the runner again.
+invariant was violated.
+
+Two rules decide what a cell means, and they hold for the whole experiment. A
+cell that spent its budget — the cost ceiling, the turn cap or the wall clock —
+without finishing is a failure of the agent: the budget is a condition of the
+experiment, identical for every arm. It counts against its arm and its cost
+counts in the metric. A cell the API would not serve — an exhausted balance, a
+rate limit, an authentication failure — measures nothing about any arm; it is
+recorded as aborted with the class of failure and excluded from every column.
+The matrix is resumable, so an aborted cell is picked up by invoking the runner
+again.
+
+Before any of this means anything, the change-request set is calibrated against
+the pristine pin: every hidden acceptance check must fail on the unmodified
+application and every `must` invariant must pass. A check that is already green
+cannot tell a successful run from an agent that did nothing. `make calibrate`
+does it and records the result in `bench/calibration.json`.
 
 ## Reproduction
 
@@ -105,10 +147,11 @@ Nothing generated is committed. Every number, table, and figure is rebuilt from
 recorded run data:
 
 ```sh
-make bench-setup   # clone the target application at its pinned commit
+make bench-setup   # fetch the target application at its pin, then build and start it
+make calibrate     # check every hidden check is red before the change and green after
 make bench-plan    # list the cells a run would cover, and which are still pending
 make bench         # execute the change-request set across the four arms
-make eval          # recompute every metric and figure from runs/
+make eval          # recompute every metric from runs/
 ```
 
 Run telemetry is written as JSONL under `runs/`, which is not tracked.
