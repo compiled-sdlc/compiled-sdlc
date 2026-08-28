@@ -12,13 +12,12 @@ evidence, and treating it as one would put an unearned success in the numbers.
 """
 
 import re
-import shutil
 import subprocess
 import time
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 
-from pipelines.common import locks
+from pipelines.common import locks, toolchain
 from pipelines.common import workspace as workspace_module
 from pipelines.common.changerequests import AcceptanceCheck, ChangeRequest, Invariant
 
@@ -36,18 +35,17 @@ class ToolchainUnavailable(RuntimeError):
 
 
 def toolchain_problem() -> str | None:
-    """Why the application's tests cannot be run here, if they cannot."""
-    required = int(locks.target()["build"]["java_version"])
-    if shutil.which("java") is None:
-        return f"no java on PATH; the pin needs java {required} or newer"
-    reported = subprocess.run(["java", "-version"], capture_output=True, text=True)
-    for token in (reported.stderr + reported.stdout).split('"'):
-        head = token.split(".")[0].strip()
-        if head.isdigit():
-            if int(head) >= required:
-                return None
-            return f"java {head} is on PATH; the pin needs java {required} or newer"
-    return "could not determine the java version on PATH"
+    """Why the application's tests cannot be run here, if they cannot.
+
+    The JDK is the one configured in the untracked dotenv, never whatever is
+    first on the path: a second, older Java would silently change what the
+    experiment compiled against.
+    """
+    try:
+        toolchain.check()
+    except toolchain.ToolchainUnavailable as error:
+        return str(error)
+    return None
 
 
 def outcome(identifier: str, kind: str, status: str, detail: str = "") -> dict:
@@ -178,7 +176,12 @@ def run_module_tests(
     started = time.monotonic()
     try:
         completed = subprocess.run(
-            command, cwd=workspace, capture_output=True, text=True, timeout=timeout
+            command,
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=toolchain.environment(),
         )
     except subprocess.TimeoutExpired:
         return {

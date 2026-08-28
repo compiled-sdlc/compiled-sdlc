@@ -16,6 +16,11 @@
     },
     "module": {"type": "string", "minLength": 1},
     "risk_class": {"enum": ["low", "standard", "elevated", "critical"]},
+    "needs_stack": {
+      "description": "Whether verifying this change request needs the application running. Module tests do not; anything that exercises a service over the wire does. Defaults to false.",
+      "type": "boolean",
+      "default": false
+    },
     "statement": {
       "description": "What is being asked for, and the observable behaviour that settles it. This is the only part an arm may render for the agent.",
       "type": "string",

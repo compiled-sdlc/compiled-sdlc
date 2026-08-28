@@ -6,7 +6,6 @@ and everything else — the workspace, the invariants, the placement and
 withdrawal of the hidden tests, the success rule — is exercised for real.
 """
 
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -339,7 +338,14 @@ def test_a_check_that_could_not_be_run_is_never_counted_as_a_pass(
 
 
 def test_the_toolchain_is_checked_before_a_build_is_attempted(monkeypatch, tmp_path):
-    monkeypatch.setattr(shutil, "which", lambda name: None)
+    def unavailable():
+        raise verify.toolchain.ToolchainUnavailable("no JAVA_HOME in .env")
+
+    monkeypatch.setattr(verify.toolchain, "check", unavailable)
     result = verify.run_module_tests(tmp_path, MODULE, ["X"], timeout=5)
     assert result["status"] == verify.ERROR
-    assert "java" in result["detail"]
+    assert "JAVA_HOME" in result["detail"]
+
+
+def test_the_configured_toolchain_is_usable_on_this_machine():
+    assert verify.toolchain_problem() is None

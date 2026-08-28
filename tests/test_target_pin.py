@@ -46,12 +46,45 @@ def test_module_path_rejects_an_unknown_module():
         locks.module_path("nonesuch")
 
 
-def test_the_build_commands_are_the_ones_the_application_documents():
+def test_the_build_is_the_no_container_one():
+    """Containers are prohibited on the experiment machine; the pin's compose path is not used."""
     build = locks.target()["build"]
     assert build["build_command"].startswith("./mvnw")
-    assert "buildDocker" in build["build_command"]
-    assert build["up_command"].startswith("docker compose")
+    assert "buildDocker" not in build["build_command"]
+    assert "docker" not in build["up_command"]
+    assert "docker" not in build["down_command"]
     assert build["java_version"] == "17"
+
+
+def test_the_local_stack_starts_the_services_the_experiment_needs():
+    services = locks.target()["build"]["services"]
+    names = [service["name"] for service in services]
+    assert names[0] == "config-server", "configuration has to be up before anything else"
+    assert names[1] == "discovery-server"
+    assert {"customers-service", "vets-service", "visits-service"} <= set(names)
+    assert "genai-service" not in names, "it needs an external credential to boot"
+    ports = [service["port"] for service in services]
+    assert len(set(ports)) == len(ports), "two services cannot share a port"
+    for service in services:
+        assert service["health"].startswith("/")
+        assert service["wait_seconds"] > 0
+
+
+def test_the_environment_record_says_what_the_pin_was_verified_on():
+    record = locks.read_lock(REPO / "bench" / "environment.lock")
+    assert record["commit"] == locks.target()["target"]["commit"]
+    assert record["containers"] is False
+    assert record["toolchain"]["jdk_major"] >= int(locks.target()["build"]["java_version"])
+    assert all(service["healthy"] for service in record["services"])
+    assert {service["name"] for service in record["services"]} == {
+        service["name"] for service in locks.target()["build"]["services"]
+    }
+
+
+def test_the_environment_record_carries_no_machine_specific_path():
+    """Machine paths are never tracked; the JDK is located through the dotenv."""
+    text = (REPO / "bench" / "environment.lock").read_text()
+    assert "/Users/" not in text and "/home/" not in text
 
 
 def test_status_reports_a_mismatch_when_the_checkout_is_absent(tmp_path, monkeypatch):

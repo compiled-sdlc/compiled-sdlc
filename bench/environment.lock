@@ -1,0 +1,56 @@
+# What the pinned application was last verified to build and run on.
+#
+# Written by infra/bench_setup.py after a successful verification. No
+# machine-specific path appears here: the JDK is located through the
+# untracked dotenv, and only the version it reports is recorded.
+
+schema_version = 1
+verified_on = "2026-08-28"
+commit = "3858f9c630cf989bb6809a86edf47c2be78dc9f1"
+containers = false
+# Containers are prohibited on the experiment machine, so the stack runs as
+# folder-local JVM processes started by infra/stack.py.
+runner = "python infra/stack.py start"
+
+[toolchain]
+jdk_major = 21
+maven = "3.9.8"
+jdk_banner = """
+java version "21.0.7" 2025-04-15 LTS
+Java(TM) SE Runtime Environment Oracle GraalVM 21.0.7+8.1 (build 21.0.7+8-LTS-jvmci-23.1-b60)
+Java HotSpot(TM) 64-Bit Server VM Oracle GraalVM 21.0.7+8.1 (build 21.0.7+8-LTS-jvmci-23.1-b60, mixed mode, sharing)
+"""
+
+# Every service the local stack starts, and whether it answered its health
+# endpoint at verification. The genai service is excluded: it needs an
+# external credential to boot and no change request touches it.
+
+[[services]]
+name = "config-server"
+port = 8888
+healthy = true
+
+[[services]]
+name = "discovery-server"
+port = 8761
+healthy = true
+
+[[services]]
+name = "customers-service"
+port = 8081
+healthy = true
+
+[[services]]
+name = "vets-service"
+port = 8083
+healthy = true
+
+[[services]]
+name = "visits-service"
+port = 8082
+healthy = true
+
+[[services]]
+name = "api-gateway"
+port = 8080
+healthy = true

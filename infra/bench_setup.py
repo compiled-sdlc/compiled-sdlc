@@ -14,13 +14,14 @@ import argparse
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from pipelines.common import locks  # noqa: E402  - path setup must precede the import
+from pipelines.common import locks, toolchain  # noqa: E402  - path setup precedes the import
 
 
 def run(
@@ -38,18 +39,6 @@ def capture(command: list[str], cwd: Path | None = None) -> str:
 def require(tool: str, reason: str) -> None:
     if shutil.which(tool) is None:
         raise SystemExit(f"{tool} is not installed; it is required to {reason}")
-
-
-def java_major_version() -> int | None:
-    """The major version of the java on PATH, or None if there is none."""
-    if shutil.which("java") is None:
-        return None
-    result = subprocess.run(["java", "-version"], capture_output=True, text=True)
-    for token in (result.stderr + result.stdout).split('"'):
-        head = token.split(".")[0].strip()
-        if head.isdigit():
-            return int(head)
-    return None
 
 
 def clone(repository: str, checkout: Path) -> None:
@@ -82,28 +71,100 @@ def probe(url: str, timeout: int) -> bool:
         return False
 
 
-def verify(checkout: Path, build: dict) -> None:
-    """Build the application and bring the stack up until healthy, then stop it."""
-    require("docker", "build the application images and run the stack")
-    java = java_major_version()
-    required = int(build["java_version"])
-    if java is None or java < required:
-        found = "no java on PATH" if java is None else f"java {java}"
-        raise SystemExit(f"the pin needs java {required} or newer to build; found {found}")
+def maven_wrapper_version(checkout: Path) -> str:
+    """The Maven the pin's own wrapper fetches."""
+    properties = checkout / ".mvn" / "wrapper" / "maven-wrapper.properties"
+    if not properties.exists():
+        return "unknown"
+    for line in properties.read_text().splitlines():
+        if line.startswith("distributionUrl"):
+            return line.rsplit("/", 1)[-1].removeprefix("apache-maven-").removesuffix("-bin.zip")
+    return "unknown"
+
+
+def verify(checkout: Path, build: dict) -> dict:
+    """Build the application, bring the stack up until healthy, then stop it.
+
+    The pin ships a container build and a compose file; containers are not
+    available here, so the application is built as plain jars and run as
+    folder-local processes. What is proved is the same thing the compose path
+    proves: the pin builds, and every service the experiment needs starts and
+    answers.
+    """
+    home, banner = toolchain.check()
+    print(f"jdk    {banner.splitlines()[0]}")
 
     print("building")
-    run(build["build_command"].split(), cwd=checkout)
+    build_command = build["build_command"].split()
+    built = subprocess.run(build_command, cwd=checkout, env=toolchain.environment(home))
+    if built.returncode != 0:
+        raise SystemExit("the pin did not build")
+
     print("starting the stack")
-    run(build["up_command"].split(), cwd=checkout)
-    try:
-        timeout = int(build["health_timeout_seconds"])
-        for url in build["health_urls"]:
-            if not probe(url, timeout=min(timeout, 30)):
-                raise SystemExit(f"the stack started but {url} did not answer")
-            print(f"  {url} answered")
-    finally:
-        print("stopping the stack")
-        run(build["down_command"].split(), cwd=checkout, check=False)
+    started = subprocess.run(build["up_command"].split(), cwd=locks.REPO_ROOT)
+    if started.returncode != 0:
+        raise SystemExit("the stack did not come up")
+
+    probes = []
+    for service in build["services"]:
+        url = f"http://localhost:{service['port']}{service['health']}"
+        answered = probe(url, timeout=15)
+        print(f"  {service['name']:18s} {'answered' if answered else 'DID NOT ANSWER'}")
+        probes.append({"name": service["name"], "port": service["port"], "healthy": answered})
+
+    print("stopping the stack")
+    subprocess.run(build["down_command"].split(), cwd=locks.REPO_ROOT, check=False)
+
+    if not all(entry["healthy"] for entry in probes):
+        raise SystemExit("the stack started but not every service answered")
+
+    return {
+        "jdk_banner": banner,
+        "jdk_major": toolchain.major_version(banner),
+        "maven": maven_wrapper_version(checkout),
+        "services": probes,
+    }
+
+
+def write_environment_record(details: dict, commit: str) -> Path:
+    """Record what the pin was verified on. No machine-specific paths are recorded."""
+    path = locks.REPO_ROOT / "bench" / "environment.lock"
+    lines = [
+        "# What the pinned application was last verified to build and run on.",
+        "#",
+        "# Written by infra/bench_setup.py after a successful verification. No",
+        "# machine-specific path appears here: the JDK is located through the",
+        "# untracked dotenv, and only the version it reports is recorded.",
+        "",
+        "schema_version = 1",
+        f'verified_on = "{time.strftime("%Y-%m-%d")}"',
+        f'commit = "{commit}"',
+        "containers = false",
+        "# Containers are prohibited on the experiment machine, so the stack runs as",
+        "# folder-local JVM processes started by infra/stack.py.",
+        f'runner = "{locks.target()["build"]["up_command"]}"',
+        "",
+        "[toolchain]",
+        f"jdk_major = {details['jdk_major']}",
+        f'maven = "{details["maven"]}"',
+        'jdk_banner = """',
+        details["jdk_banner"],
+        '"""',
+        "",
+        "# Every service the local stack starts, and whether it answered its health",
+        "# endpoint at verification. The genai service is excluded: it needs an",
+        "# external credential to boot and no change request touches it.",
+    ]
+    for service in details["services"]:
+        lines += [
+            "",
+            "[[services]]",
+            f'name = "{service["name"]}"',
+            f"port = {service['port']}",
+            f"healthy = {'true' if service['healthy'] else 'false'}",
+        ]
+    path.write_text("\n".join(lines) + "\n")
+    return path
 
 
 def status(checkout: Path, commit: str) -> int:
@@ -140,8 +201,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_verify:
         print("skipping the build and start check")
         return 0
-    verify(checkout, pin["build"])
-    print("target application builds and starts at the pin")
+    details = verify(checkout, pin["build"])
+    record = write_environment_record(details, commit)
+    print("\ntarget application builds and starts at the pin")
+    print(f"recorded in {record.relative_to(locks.REPO_ROOT)}")
     return 0
 
 

@@ -18,8 +18,11 @@ computes them from recorded runs.
 
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/) and GNU make. Docker is required from
-the benchmark phase onward.
+Requires [uv](https://docs.astral.sh/uv/), GNU make, and a JDK 17 or newer for
+the target application. No containers are needed: the application is built as
+plain jars and run as folder-local JVM processes. The JDK is machine-specific,
+so its location is read from `JAVA_HOME` in an untracked `.env` at the
+repository root rather than from the ambient path.
 
 ```sh
 make scaffold        # create the virtual environment and the untracked working directories
@@ -28,6 +31,7 @@ make schemas         # validate every Lifecycle IR example against its schema
 make bench-setup     # fetch the target application at its pin and check it builds and starts
 make bench-validate  # check the change-request set against its schema and the pin
 make smoke           # prove the executor plumbing with one trivial run
+make stack-start     # run the target application locally; stack-status, stack-stop
 make help            # list every target
 ```
 

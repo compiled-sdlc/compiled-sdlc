@@ -69,6 +69,7 @@ class ChangeRequest:
     risk_class: str
     statement: str
     context: str
+    needs_stack: bool
     must_invariants: tuple[Invariant, ...]
     acceptance: tuple[AcceptanceCheck, ...]
     path: Path
@@ -113,6 +114,7 @@ def parse(document: dict, path: Path) -> ChangeRequest:
         risk_class=document["risk_class"],
         statement=document["statement"],
         context=document.get("context", ""),
+        needs_stack=bool(document.get("needs_stack", False)),
         must_invariants=tuple(
             Invariant(
                 id=item["id"],

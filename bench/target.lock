@@ -20,13 +20,68 @@ checkout = "bench/target"
 
 [build]
 java_version = "17"
-build_command = "./mvnw --batch-mode clean install -P buildDocker"
-compose_file = "docker-compose.yml"
-up_command = "docker compose up --wait"
-down_command = "docker compose down --volumes --remove-orphans"
-# Probed after the stack reports healthy.
-health_urls = ["http://localhost:8761", "http://localhost:8080"]
-health_timeout_seconds = 600
+version = "4.0.1"
+# Containers are not available on the experiment machine, so the pin's
+# buildDocker profile and compose file are not used. The application is built as
+# plain executable jars and run as folder-local JVM processes by infra/stack.py,
+# which needs no daemon, no image registry and no administrative rights. The
+# deployment substrate differs from the pin's convenience path; the application,
+# its configuration and its wire behaviour do not.
+build_command = "./mvnw --batch-mode -DskipTests package"
+up_command = "python infra/stack.py start"
+down_command = "python infra/stack.py stop"
+status_command = "python infra/stack.py status"
+health_timeout_seconds = 300
+# Where the runner keeps pid files, logs and its record of what it started.
+runtime_directory = "runs/stack"
+
+# The services the local stack starts, in the order it starts them. Each is
+# waited for on its own health endpoint before the next is launched, which is
+# what the compose file expressed with service_healthy conditions.
+#
+# The genai service is excluded: it needs an external model credential to boot,
+# and nothing in the change-request set touches it.
+[[build.services]]
+name = "config-server"
+module = "config"
+port = 8888
+health = "/actuator/health"
+wait_seconds = 120
+
+[[build.services]]
+name = "discovery-server"
+module = "discovery"
+port = 8761
+health = "/actuator/health"
+wait_seconds = 120
+
+[[build.services]]
+name = "customers-service"
+module = "customers"
+port = 8081
+health = "/actuator/health"
+wait_seconds = 120
+
+[[build.services]]
+name = "vets-service"
+module = "vets"
+port = 8083
+health = "/actuator/health"
+wait_seconds = 120
+
+[[build.services]]
+name = "visits-service"
+module = "visits"
+port = 8082
+health = "/actuator/health"
+wait_seconds = 120
+
+[[build.services]]
+name = "api-gateway"
+module = "gateway"
+port = 8080
+health = "/actuator/health"
+wait_seconds = 120
 
 [test]
 # {module} and {tests} are substituted by the verification harness.
