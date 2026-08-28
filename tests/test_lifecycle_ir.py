@@ -261,3 +261,13 @@ def test_report_prints_the_traceability_summary(capsys):
 def test_single_document_validates_against_its_declared_schema(capsys):
     assert main(["validate", str(EXAMPLES / "valid" / "intent-graph.json")]) == 0
     assert main(["validate", str(EXAMPLES / "invalid" / "bundle-missing-structure.json")]) == 1
+
+
+# --- documentation ---------------------------------------------------------
+
+
+def test_the_reference_table_is_documented():
+    """The cross-reference table in the IR README is the specification; keep it complete."""
+    readme = (REPO / "lifecycle-ir" / "README.md").read_text()
+    missing = [reference.label for reference in REFERENCES if f"`{reference.label}`" not in readme]
+    assert missing == []

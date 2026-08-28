@@ -11,7 +11,8 @@ lifecycle cost** — total model, tool, and weighted human-review cost across al
 attempts, divided by the number of change requests that pass hidden acceptance
 tests without violating a `must` invariant.
 
-Status: scaffold. No experimental results have been produced yet; none are
+Status: the IR schemas and their validator are in place; the benchmark harness
+and the arms are not. No experimental results have been produced yet; none are
 reported here or anywhere else in the repository until `eval/` computes them
 from recorded runs.
 
@@ -23,6 +24,7 @@ the benchmark phase onward.
 ```sh
 make scaffold   # create the virtual environment and the untracked working directories
 make            # lint, test, and run the repository hygiene audit
+make schemas    # validate every Lifecycle IR example against its schema
 make help       # list every target
 ```
 
@@ -47,10 +49,17 @@ make help       # list every target
 | Structure | Records | Bound to |
 |---|---|---|
 | Intent Graph | Goals, actors, behaviors, acceptance conditions, exclusions, open questions | OpenAPI, AsyncAPI |
-| Constraint Graph | Security, privacy, architecture, performance, compatibility, cost boundaries | Policy-as-code |
-| Transformation Plan | Affected components, structured code and deployment changes, rollback | AST edit operations, JSON Patch |
-| Evidence Graph | Traceability from every requirement and invariant to the checks that discharge it | SARIF, OpenTelemetry |
-| Provenance Ledger | Model, agent and tool versions, inputs, decisions, approvals, artifact hashes | in-toto, SLSA, SPDX/CycloneDX |
+| Constraint Graph | Security, privacy, architecture, performance, compatibility, cost boundaries | Rego, Cedar |
+| Transformation Plan | Affected components, structured code and deployment changes, rollback | tree-sitter, OpenRewrite, JSON Patch, Sigstore |
+| Evidence Graph | Traceability from every requirement and invariant to the checks that discharge it | SARIF, OpenTelemetry, JUnit |
+| Provenance Ledger | Principals and their versions, inputs, decisions, approvals, artifact hashes | in-toto, SLSA, SPDX/CycloneDX |
+
+The structures are a composition of standards that already exist; what the IR
+adds is the typed linkage between them, and a validator that checks it across a
+whole bundle rather than one document at a time. `lifecycle-ir/README.md` states
+every cross-reference the IR defines and what the validator enforces;
+`lifecycle-ir/examples/change-request/CR-014/` is one change request expressed
+fully in IR, exercising all of them.
 
 ## Reproduction
 
