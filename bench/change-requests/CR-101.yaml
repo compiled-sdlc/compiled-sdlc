@@ -1,0 +1,51 @@
+id: CR-101
+title: Pet update applies to the pet named in the path
+category: bug_fix
+module: customers
+risk_class: standard
+
+statement: |
+  Updating a pet ignores the pet identifier in the request path. The update
+  endpoint takes the identifier from the request body instead, so a request to
+  update one pet can modify a different one.
+
+  Make the path decide which pet is updated:
+
+  - A request whose body carries the same identifier as the path updates that
+    pet and answers 204 No Content, as it does today.
+  - A request whose body carries a different identifier changes nothing and is
+    answered 400 Bad Request.
+  - A request for a pet that does not exist is answered 404 Not Found, as it is
+    today.
+
+context: |
+  The endpoint is the pet update operation in the customers service. Every other
+  operation on that resource already takes its subject from the path.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:update-still-answers-no-content
+    kind: text_present
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/web/PetResource.java
+    pattern: "HttpStatus\\.NO_CONTENT"
+    statement: The success path must still answer 204, not a new status.
+  - id: invariant:customers-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-visits-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The fix belongs in the customers service and must not spread to other services.
+
+acceptance:
+  - id: check:customers.pet-update.path-decides
+    source: bench/checks/CR-101/PetUpdatePathAcceptanceTest.java
+    destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/PetUpdatePathAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.customers.web.PetUpdatePathAcceptanceTest
+    statement: The pet in the path is the pet updated, and a mismatched body is rejected.

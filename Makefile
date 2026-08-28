@@ -5,7 +5,7 @@ UV ?= uv
 
 .DEFAULT_GOAL := all
 .PHONY: all help setup scaffold lint fmt test audit install-hook \
-        schemas bench-setup bench-status bench eval manuscript clean
+        schemas bench-setup bench-status bench-validate bench eval manuscript clean
 
 all: lint test audit
 
@@ -20,6 +20,7 @@ help:
 	@echo "schemas       validate every Lifecycle IR example against its schema"
 	@echo "bench-setup   clone the target application at its pin and check it builds and starts"
 	@echo "bench-status  report whether the local checkout matches the pin"
+	@echo "bench-validate check the change-request set against its schema and the pin"
 	@echo "bench         run the change-request set across the arms"
 	@echo "eval          regenerate every metric and figure from runs/"
 	@echo "manuscript    build the manuscript PDF"
@@ -50,6 +51,9 @@ install-hook:
 
 schemas:
 	$(UV) run python lifecycle-ir/validate.py examples
+
+bench-validate:
+	@$(UV) run python -m pipelines.common.changerequests
 
 bench-setup:
 	$(UV) run python infra/bench_setup.py $(BENCH_SETUP_FLAGS)

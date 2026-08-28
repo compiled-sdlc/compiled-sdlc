@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:compiled-sdlc:bench:1:change-request",
+  "version": "1",
+  "title": "Change request",
+  "description": "One unit of work put to an agent, against the pinned target application. The statement is what an arm renders for the agent; the invariants and the acceptance checks are ground truth the agent never sees, applied by the harness after the run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "category", "module", "risk_class", "statement", "must_invariants", "acceptance"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^CR-[0-9]{3,}$"},
+    "title": {"type": "string", "minLength": 1},
+    "category": {
+      "description": "The four kinds of work the change-request set covers.",
+      "enum": ["feature", "bug_fix", "non_functional", "incident"]
+    },
+    "module": {"type": "string", "minLength": 1},
+    "risk_class": {"enum": ["low", "standard", "elevated", "critical"]},
+    "statement": {
+      "description": "What is being asked for, and the observable behaviour that settles it. This is the only part an arm may render for the agent.",
+      "type": "string",
+      "minLength": 1
+    },
+    "context": {
+      "description": "Background an arm may also render: where the behaviour lives, what prompted the request.",
+      "type": "string"
+    },
+    "must_invariants": {
+      "description": "Boundaries the change must not cross. Violating one means the change is not a success, however green its acceptance checks.",
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/invariant"}
+    },
+    "acceptance": {
+      "description": "Hidden tests. They live in bench/, are never placed in the workspace or the prompt, and are run by the harness after the agent has finished.",
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/acceptanceCheck"}
+    }
+  },
+  "$defs": {
+    "invariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "statement"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^invariant:[a-z0-9][a-z0-9.-]*$"},
+        "kind": {
+          "enum": [
+            "module_tests_pass",
+            "no_new_dependency",
+            "file_unchanged",
+            "paths_untouched",
+            "text_present",
+            "text_absent"
+          ]
+        },
+        "statement": {"type": "string", "minLength": 1},
+        "paths": {
+          "description": "Paths relative to the target application root.",
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "prefixes": {"type": "array", "items": {"type": "string"}},
+        "pattern": {"type": "string"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"enum": ["file_unchanged"]}}, "required": ["kind"]},
+          "then": {"required": ["paths"]}
+        },
+        {
+          "if": {"properties": {"kind": {"enum": ["text_present", "text_absent"]}}, "required": ["kind"]},
+          "then": {"required": ["paths", "pattern"]}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "paths_untouched"}}, "required": ["kind"]},
+          "then": {"required": ["prefixes"]}
+        }
+      ]
+    },
+    "acceptanceCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "destination", "test_class"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^check:[a-z0-9][a-z0-9._-]*$"},
+        "source": {
+          "description": "The test's home, relative to the repository root. Tracked openly here; hidden from the agent.",
+          "type": "string",
+          "pattern": "^bench/checks/"
+        },
+        "destination": {
+          "description": "Where the harness places it in the workspace, relative to the target application root.",
+          "type": "string",
+          "minLength": 1
+        },
+        "test_class": {"type": "string", "pattern": "^[a-zA-Z_][A-Za-z0-9_.]*$"},
+        "statement": {"type": "string"}
+      }
+    }
+  }
+}

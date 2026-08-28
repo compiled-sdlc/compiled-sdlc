@@ -1,0 +1,54 @@
+id: CR-104
+title: Keep visit descriptions out of the logs
+category: non_functional
+module: visits
+risk_class: elevated
+
+statement: |
+  Creating a visit writes the whole visit to the application log at info level,
+  including its free-text description. That description is where clinical detail
+  about an animal and its owner ends up, and the log is shipped off the host and
+  retained.
+
+  Stop the description reaching the log. Creating a visit must still log that it
+  happened, at info level, identifying the visit by its pet identifier — but no
+  log line the operation writes may contain the description text.
+
+  The response to the caller does not change: the created visit is still
+  answered in full, description included.
+
+context: |
+  The behaviour is in the visit creation operation of the visits service.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:still-logs-the-creation
+    kind: text_present
+    paths:
+      - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/web/VisitResource.java
+    pattern: "log\\.info"
+    statement: The operation must still record that a visit was created; silence is not the fix.
+  - id: invariant:description-still-persisted
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/model/Visit.java
+    statement: The description is still stored and still returned; only the log changes.
+  - id: invariant:visits-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the visits service.
+
+acceptance:
+  - id: check:visits.create.description-not-logged
+    source: bench/checks/CR-104/VisitLoggingAcceptanceTest.java
+    destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/VisitLoggingAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.visits.web.VisitLoggingAcceptanceTest
+    statement: No log line from the creation carries the description, the creation is still logged, and the response still carries it.

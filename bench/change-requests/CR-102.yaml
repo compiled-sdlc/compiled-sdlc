@@ -1,0 +1,48 @@
+id: CR-102
+title: Pet creation rejects an invalid request body
+category: bug_fix
+module: customers
+risk_class: standard
+
+statement: |
+  Creating a pet accepts a request body that fails its own declared
+  constraints. The body's name is declared as needing at least one character,
+  but the constraint is never applied, so a pet can be created with an empty
+  name.
+
+  Make the create operation apply the constraints declared on its request body:
+  a body that violates them is answered 400 Bad Request and creates nothing. A
+  valid body still answers 201 Created with the created pet, as it does today.
+
+context: |
+  The endpoint is the pet creation operation in the customers service. The
+  equivalent operation in the visits service already applies its body
+  constraints; this one does not.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module; the validation the module needs is already on its classpath.
+  - id: invariant:constraint-stays-on-the-request
+    kind: text_present
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/web/PetRequest.java
+    pattern: "@Size\\(min = 1\\)"
+    statement: The declared constraint must be enforced, not deleted or moved.
+  - id: invariant:customers-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-visits-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The fix belongs in the customers service.
+
+acceptance:
+  - id: check:customers.pet-create.rejects-invalid-body
+    source: bench/checks/CR-102/PetCreationValidationAcceptanceTest.java
+    destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/PetCreationValidationAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.customers.web.PetCreationValidationAcceptanceTest
+    statement: An empty name is rejected with 400 and creates nothing; a valid body still creates a pet.

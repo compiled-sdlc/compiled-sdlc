@@ -1,0 +1,57 @@
+id: CR-105
+title: Bound the batch visit lookup
+category: incident
+module: visits
+risk_class: elevated
+
+statement: |
+  During an incident, a caller asked the visits service for the visits of
+  several thousand pets in a single request. The service builds one query from
+  whatever list of pet identifiers it is given, and the query held a database
+  connection long enough to exhaust the pool; visit lookups failed across every
+  clinic for eleven minutes.
+
+  Bound the request. The batch visit lookup accepts at most 100 pet identifiers:
+
+  - A request naming 100 or fewer identifiers behaves exactly as it does today.
+  - A request naming more than 100 is answered 400 Bad Request and no query is
+    issued.
+
+context: |
+  The operation is the batch visit lookup in the visits service, the one that
+  takes a list of pet identifiers as a request parameter. The single-pet
+  lookups are not affected.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass, including the one covering the batch lookup.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:batch-path-unchanged
+    kind: text_present
+    paths:
+      - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/web/VisitResource.java
+    pattern: "pets/visits"
+    statement: The operation keeps its path; callers under the limit see no difference.
+  - id: invariant:single-pet-lookup-untouched
+    kind: text_present
+    paths:
+      - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/web/VisitResource.java
+    pattern: "owners/\\*/pets/\\{petId\\}/visits"
+    statement: The per-pet lookups are not part of this change.
+  - id: invariant:visits-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the visits service.
+
+acceptance:
+  - id: check:visits.batch-lookup.bounded
+    source: bench/checks/CR-105/BatchVisitLookupAcceptanceTest.java
+    destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/BatchVisitLookupAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.visits.web.BatchVisitLookupAcceptanceTest
+    statement: A request over the limit is rejected without querying; a request at the limit still answers as before.

@@ -1,0 +1,56 @@
+id: CR-103
+title: List an owner's pets
+category: feature
+module: customers
+risk_class: low
+
+statement: |
+  There is no way to ask the customers service for all of an owner's pets. A
+  caller that wants them has to fetch each pet by identifier, which it can only
+  do if it already knows the identifiers.
+
+  Add a read operation at GET /owners/{ownerId}/pets that answers with the
+  owner's pets as a JSON array, using the same representation the single-pet
+  read already returns for each element. An owner with no pets is answered with
+  an empty array and 200 OK. An owner that does not exist is answered 404 Not
+  Found.
+
+  An owner's pets are the ones the owner record already holds; this operation
+  reads them, it does not introduce a second place they are kept.
+
+context: |
+  The single-pet read operation in the customers service already renders a pet
+  in the representation this operation should reuse.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:single-pet-read-unchanged
+    kind: text_present
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/web/PetResource.java
+    pattern: "owners/\\*/pets/\\{petId\\}"
+    statement: The existing single-pet read must keep its path.
+  - id: invariant:representation-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/web/PetDetails.java
+    statement: The pet representation is reused as it stands, not redefined.
+  - id: invariant:customers-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-visits-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The feature belongs in the customers service.
+
+acceptance:
+  - id: check:customers.owner-pets.list
+    source: bench/checks/CR-103/OwnerPetsListAcceptanceTest.java
+    destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/OwnerPetsListAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.customers.web.OwnerPetsListAcceptanceTest
+    statement: The list answers with the owner's pets, an empty array when there are none, and 404 for an unknown owner.
