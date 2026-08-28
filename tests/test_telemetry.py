@@ -152,3 +152,35 @@ def test_an_abort_is_never_an_agent_failure():
     assert telemetry.ERROR_CLASSES >= telemetry.ABORT_CLASSES
     # Budget stops are decisions of the harness, not failures of the apparatus.
     assert not telemetry.ABORT_CLASSES & {"turn_budget", "cost_budget", "executor_crash"}
+
+
+def test_a_cell_is_costed_at_each_models_own_prices():
+    """The executor bills a second model for its own work; one price table entry will not do."""
+    pricing = {
+        "models": {
+            "big": {
+                "input": 2.0,
+                "output": 10.0,
+                "cache_write_5m": 2.5,
+                "cache_write_1h": 4.0,
+                "cache_read": 0.2,
+            },
+            "small": {
+                "input": 1.0,
+                "output": 5.0,
+                "cache_write_5m": 1.25,
+                "cache_write_1h": 2.0,
+                "cache_read": 0.1,
+            },
+        }
+    }
+    per_model = {
+        "big": Usage(input_tokens=1_000_000, output_tokens=0),
+        "small": Usage(input_tokens=1_000_000, output_tokens=0),
+    }
+    total, breakdown = telemetry.cost_by_model(per_model, pricing)
+    assert breakdown == {"big": 2.0, "small": 1.0}
+    assert total == pytest.approx(3.0)
+    assert total < telemetry.compute_cost(Usage(input_tokens=2_000_000), "big", pricing), (
+        "costing every token at the larger model's price overstates the bill"
+    )

@@ -328,3 +328,144 @@ def test_the_pinned_command_names_the_executor_from_the_lock():
         "prompt", "a-model", Budget(1, 1, 1), locks.executor()["invocation"]
     )
     assert command[0] == locks.executor()["cli"]["binary"]
+
+
+# --- what the totals are taken from ----------------------------------------
+
+
+def test_the_per_model_breakdown_is_the_authority_for_what_was_spent(tmp_path, workspace, dotenv):
+    """The top-level block omits calls the executor makes outside the visible turns."""
+    script = stand_in(
+        tmp_path,
+        emit(
+            result_event(
+                usage={
+                    "input_tokens": 18,
+                    "output_tokens": 8,
+                    "cache_creation_input_tokens": 4996,
+                    "cache_read_input_tokens": 20939,
+                    "output_tokens_details": {"thinking_tokens": 144},
+                    "cache_creation": {
+                        "ephemeral_5m_input_tokens": 4996,
+                        "ephemeral_1h_input_tokens": 0,
+                    },
+                    "iterations": [{"type": "message"}],
+                },
+                modelUsage={
+                    "a-model": {
+                        "inputTokens": 947,
+                        "outputTokens": 281,
+                        "cacheReadInputTokens": 20939,
+                        "cacheCreationInputTokens": 4996,
+                        "costUSD": 0.0106909,
+                    }
+                },
+            )
+        ),
+    )
+    execution = run(script, workspace, tmp_path, dotenv)
+    assert execution.usage.input_tokens == 947
+    assert execution.usage.output_tokens == 281
+    assert execution.usage.cache_read_input_tokens == 20939
+    assert execution.usage.cache_creation_input_tokens == 4996
+    assert execution.usage.cache_creation_5m_tokens == 4996
+    assert execution.usage.reasoning_tokens == 144
+    assert execution.response["models_used"] == ["a-model"]
+
+
+def test_the_totals_fall_back_to_the_top_level_block_when_there_is_no_breakdown(
+    tmp_path, workspace, dotenv
+):
+    script = stand_in(tmp_path, emit(result_event()))
+    execution = run(script, workspace, tmp_path, dotenv)
+    assert execution.usage.input_tokens == 1500
+    assert execution.usage.output_tokens == 700
+
+
+def test_a_cell_that_billed_more_than_one_model_says_so(tmp_path, workspace, dotenv):
+    """Mixing models across a run makes its token counts incomparable; it must be visible."""
+    script = stand_in(
+        tmp_path,
+        emit(
+            result_event(
+                modelUsage={
+                    "a-model": {"inputTokens": 10, "outputTokens": 1},
+                    "another-model": {"inputTokens": 5, "outputTokens": 2},
+                }
+            )
+        ),
+    )
+    execution = run(script, workspace, tmp_path, dotenv)
+    assert execution.response["models_used"] == ["a-model", "another-model"]
+    assert execution.usage.input_tokens == 15
+
+
+def test_a_cache_split_larger_than_the_total_is_not_trusted(tmp_path, workspace, dotenv):
+    """The split is a breakdown of the total, never an addition to it."""
+    script = stand_in(
+        tmp_path,
+        emit(
+            result_event(
+                usage={
+                    "cache_creation": {
+                        "ephemeral_5m_input_tokens": 9_000,
+                        "ephemeral_1h_input_tokens": 9_000,
+                    }
+                },
+                modelUsage={"a-model": {"cacheCreationInputTokens": 100}},
+            )
+        ),
+    )
+    execution = run(script, workspace, tmp_path, dotenv)
+    assert execution.usage.cache_creation_input_tokens == 100
+    assert execution.usage.cache_creation_5m_tokens == 100
+    assert execution.usage.cache_creation_1h_tokens == 0
+
+
+def test_each_model_gets_its_own_share_of_the_tokens(tmp_path, workspace, dotenv):
+    script = stand_in(
+        tmp_path,
+        emit(
+            result_event(
+                usage={"cache_creation": {"ephemeral_5m_input_tokens": 300}},
+                modelUsage={
+                    "a-model": {
+                        "inputTokens": 900,
+                        "outputTokens": 100,
+                        "cacheCreationInputTokens": 300,
+                        "cacheReadInputTokens": 50,
+                    },
+                    "a-smaller-model": {"inputTokens": 20, "outputTokens": 3},
+                },
+            )
+        ),
+    )
+    execution = run(script, workspace, tmp_path, dotenv)
+    assert set(execution.per_model_usage) == {"a-model", "a-smaller-model"}
+    assert execution.per_model_usage["a-model"].input_tokens == 900
+    assert execution.per_model_usage["a-model"].cache_creation_5m_tokens == 300
+    assert execution.per_model_usage["a-smaller-model"].output_tokens == 3
+    assert execution.usage.input_tokens == 920, "the aggregate is still the sum"
+
+
+def test_the_longer_cache_lifetime_is_shared_out_by_each_models_share(tmp_path, workspace, dotenv):
+    script = stand_in(
+        tmp_path,
+        emit(
+            result_event(
+                usage={
+                    "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 400,
+                    }
+                },
+                modelUsage={
+                    "a-model": {"cacheCreationInputTokens": 300},
+                    "a-smaller-model": {"cacheCreationInputTokens": 100},
+                },
+            )
+        ),
+    )
+    execution = run(script, workspace, tmp_path, dotenv)
+    assert execution.per_model_usage["a-model"].cache_creation_1h_tokens == 300
+    assert execution.per_model_usage["a-smaller-model"].cache_creation_1h_tokens == 100

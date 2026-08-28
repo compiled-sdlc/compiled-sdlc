@@ -109,6 +109,7 @@ class RunRecord:
     wall_time_seconds: float = 0.0
     api_time_seconds: float = 0.0
     cost_usd: float = 0.0
+    cost_by_model: dict = field(default_factory=dict)
     executor_reported_cost_usd: float | None = None
     pricing_captured_on: str = ""
     workspace: dict = field(default_factory=dict)
@@ -167,6 +168,21 @@ def compute_cost(usage: Usage, model: str, pricing: dict | None = None) -> float
         + usage.cache_read_input_tokens * rates["cache_read"]
     )
     return micros / 1_000_000
+
+
+def cost_by_model(per_model: dict[str, Usage], pricing: dict | None = None) -> tuple[float, dict]:
+    """Cost of a cell whose tokens were spent on more than one model.
+
+    The executor bills a smaller model for some of its own internal work, so a
+    cell's tokens are not all at the pinned model's prices. Each model's tokens
+    are costed at its own captured prices and the results are added; costing the
+    total at one model's prices overstates the bill.
+    """
+    breakdown = {
+        model: round(compute_cost(usage, model, pricing), 6)
+        for model, usage in sorted(per_model.items())
+    }
+    return round(sum(breakdown.values()), 6), breakdown
 
 
 def read_index(index: Path) -> list[dict]:

@@ -87,6 +87,7 @@ class Execution:
     api_time_seconds: float = 0.0
     executor_reported_cost_usd: float | None = None
     response: dict = field(default_factory=dict)
+    per_model_usage: dict = field(default_factory=dict)
     exit_code: int | None = None
 
 
@@ -171,6 +172,8 @@ class StreamState:
         self.permission_denials = 0
         self.usage = Usage()
         self.result: dict | None = None
+        self.model_usage: dict[str, dict] = {}
+        self.per_model: dict[str, Usage] = {}
         self.session_id: str | None = None
         self.errors: list[str] = []
 
@@ -200,20 +203,75 @@ class StreamState:
             self.result = event
 
     def finish(self) -> None:
-        """Fold the terminal event into the totals."""
+        """Fold the terminal event into the totals.
+
+        The per-model breakdown is the authority for what was spent, not the
+        top-level usage block: the executor makes calls that never surface as
+        turns in the stream, and the top-level output count omits them. The two
+        agree on the cache figures and disagree on the rest, and only the
+        breakdown reproduces the cost the executor reports for itself.
+
+        The lifetime split of the cache-creation tokens and the reasoning-token
+        count exist only in the top-level block, so they are taken from there
+        and scaled to nothing: they are a breakdown of the totals, not an
+        addition to them.
+        """
         result = self.result or {}
         usage = result.get("usage") or {}
         details = usage.get("output_tokens_details") or {}
         creation = usage.get("cache_creation") or {}
         iterations = usage.get("iterations") or []
+        self.model_usage = {
+            model: spent
+            for model, spent in (result.get("modelUsage") or {}).items()
+            if isinstance(spent, dict)
+        }
+
+        creation_total = sum(
+            int(spent.get("cacheCreationInputTokens", 0) or 0)
+            for spent in self.model_usage.values()
+        )
+        long_lived = int(creation.get("ephemeral_1h_input_tokens", 0) or 0)
+
+        def per_model_usage(spent: dict) -> Usage:
+            """One model's share. The cache lifetime split is reported for the
+            cell as a whole, so it is distributed in proportion to each model's
+            share of the cache creation; when nothing was written to the longer
+            cache, which is the usual case, the distribution is exact."""
+            created = int(spent.get("cacheCreationInputTokens", 0) or 0)
+            share = (created / creation_total) if creation_total else 0.0
+            hour = min(round(long_lived * share), created)
+            return Usage(
+                input_tokens=int(spent.get("inputTokens", 0) or 0),
+                output_tokens=int(spent.get("outputTokens", 0) or 0),
+                cache_creation_input_tokens=created,
+                cache_read_input_tokens=int(spent.get("cacheReadInputTokens", 0) or 0),
+                cache_creation_5m_tokens=created - hour,
+                cache_creation_1h_tokens=hour,
+            )
+
+        self.per_model = {
+            model: per_model_usage(spent) for model, spent in self.model_usage.items()
+        }
+
+        def summed(field: str, fallback: str) -> int:
+            if self.model_usage:
+                return sum(int(spent.get(field, 0) or 0) for spent in self.model_usage.values())
+            return int(usage.get(fallback, 0) or 0)
+
+        cache_creation = summed("cacheCreationInputTokens", "cache_creation_input_tokens")
+        split_5m = int(creation.get("ephemeral_5m_input_tokens", 0) or 0)
+        split_1h = int(creation.get("ephemeral_1h_input_tokens", 0) or 0)
+        if split_5m + split_1h > cache_creation:
+            split_5m, split_1h = cache_creation, 0
         self.usage = Usage(
-            input_tokens=int(usage.get("input_tokens", 0)),
-            output_tokens=int(usage.get("output_tokens", 0)),
-            reasoning_tokens=int(details.get("thinking_tokens", 0)),
-            cache_creation_input_tokens=int(usage.get("cache_creation_input_tokens", 0)),
-            cache_read_input_tokens=int(usage.get("cache_read_input_tokens", 0)),
-            cache_creation_5m_tokens=int(creation.get("ephemeral_5m_input_tokens", 0)),
-            cache_creation_1h_tokens=int(creation.get("ephemeral_1h_input_tokens", 0)),
+            input_tokens=summed("inputTokens", "input_tokens"),
+            output_tokens=summed("outputTokens", "output_tokens"),
+            reasoning_tokens=int(details.get("thinking_tokens", 0) or 0),
+            cache_creation_input_tokens=cache_creation,
+            cache_read_input_tokens=summed("cacheReadInputTokens", "cache_read_input_tokens"),
+            cache_creation_5m_tokens=split_5m,
+            cache_creation_1h_tokens=split_1h,
             api_calls=len(iterations),
         )
         if result.get("api_error_status"):
@@ -383,11 +441,13 @@ def execute(
         wall_time_seconds=round(wall_time, 3),
         api_time_seconds=round(float(result.get("duration_api_ms") or 0) / 1000, 3),
         executor_reported_cost_usd=result.get("total_cost_usd"),
+        per_model_usage=dict(state.per_model),
         response={
             "model": model,
             "finish_reason": result.get("stop_reason"),
             "terminal_reason": result.get("terminal_reason"),
             "session_id": state.session_id,
+            "models_used": sorted(state.model_usage),
         },
         exit_code=exit_code,
     )

@@ -71,7 +71,12 @@
         "model": {"type": "string"},
         "finish_reason": {"type": ["string", "null"]},
         "terminal_reason": {"type": ["string", "null"]},
-        "session_id": {"type": ["string", "null"]}
+        "session_id": {"type": ["string", "null"]},
+        "models_used": {
+          "description": "Every model the executor billed during the cell. More than one means the run mixed models and its token counts are not comparable.",
+          "type": "array",
+          "items": {"type": "string"}
+        }
       }
     },
     "usage": {
@@ -119,6 +124,11 @@
       "description": "Recomputed from the token counts above and the captured price table. This is the measurement.",
       "type": "number",
       "minimum": 0
+    },
+    "cost_by_model": {
+      "description": "The same cost, split by the model the tokens were spent on. The executor bills a smaller model for some of its own work, so a cell's tokens are not all at the pinned model's prices.",
+      "type": "object",
+      "additionalProperties": {"type": "number", "minimum": 0}
     },
     "executor_reported_cost_usd": {
       "description": "What the executor said it spent. Recorded for comparison, never used as the measurement.",

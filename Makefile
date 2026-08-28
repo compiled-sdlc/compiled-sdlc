@@ -5,7 +5,7 @@ UV ?= uv
 
 .DEFAULT_GOAL := all
 .PHONY: all help setup scaffold lint fmt test audit install-hook \
-        schemas bench-setup bench-status bench-validate bench eval manuscript clean
+        schemas bench-setup bench-status bench-validate bench bench-plan smoke eval manuscript clean
 
 all: lint test audit
 
@@ -22,6 +22,8 @@ help:
 	@echo "bench-status  report whether the local checkout matches the pin"
 	@echo "bench-validate check the change-request set against its schema and the pin"
 	@echo "bench         run the change-request set across the arms"
+	@echo "bench-plan    list the cells a run would cover, and which are pending"
+	@echo "smoke         prove the executor plumbing with one trivial run"
 	@echo "eval          regenerate every metric and figure from runs/"
 	@echo "manuscript    build the manuscript PDF"
 	@echo "clean         remove caches and build state"
@@ -62,7 +64,13 @@ bench-status:
 	@$(UV) run python infra/bench_setup.py --status
 
 bench:
-	@echo "bench: implemented in phase 2"; exit 1
+	$(UV) run python -m pipelines.common.runner $(BENCH_FLAGS)
+
+bench-plan:
+	@$(UV) run python -m pipelines.common.runner --plan $(BENCH_FLAGS)
+
+smoke:
+	$(UV) run python infra/smoke.py $(SMOKE_FLAGS)
 
 eval:
 	@echo "eval: implemented in phase 4"; exit 1
