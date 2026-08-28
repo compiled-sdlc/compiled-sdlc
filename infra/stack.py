@@ -140,6 +140,24 @@ def wait_for(service: Service, pid: int, directory: Path) -> bool:
 
 
 def start(only: list[str] | None = None) -> int:
+    """Start the stack from the pinned checkout.
+
+    NOTE: this boots the PIN, not a run's workspace. There is no parameter for
+    a workspace and `checkout` below is always `bench/target`, so a stack
+    started here is the unmodified application. Any acceptance check that
+    exercised it over the wire would be verifying the pin and reporting the
+    result as the agent's — a verified success nobody earned.
+
+    Nothing in the change-request set declares `needs_stack: true`, and the
+    schema's `live_stack_incident` difficulty is deliberately unused, for this
+    reason. What closing the gap would take is written down in
+    bench/VERIFICATION.md. Do not point a live-stack check at this function
+    until it is closed.
+
+    Health is also not readiness: the services report healthy before the
+    gateway can resolve them through the registry, so a caller that needs the
+    gateway must wait for it to answer, not merely for it to be up.
+    """
     home, banner = toolchain.check()
     pin = locks.target()
     checkout = locks.target_checkout()
