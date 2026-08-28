@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "rule": "Every arm gets the same number of revisions to its prompt template. An arm that has spent more attention than another wins on effort rather than on representation, and the comparison stops meaning anything. The digest is of the arm's template as frozen; changing a template means spending an iteration and recording the new digest.",
+  "allowance_per_arm": 3,
+  "frozen_before": "the pilot run",
+  "arms": {
+    "baseline": {
+      "allowance": 3,
+      "iterations_used": 1,
+      "template_sha256": "38e7fd38baf5bc2c42c034ef6ce69685a6e435346eb6b42f814a31d9a8ef9ac6",
+      "frozen_on": "2026-08-28"
+    },
+    "lcir": {
+      "allowance": 3,
+      "iterations_used": 1,
+      "template_sha256": "bd6fe5bd0f1602542546fddfe5d2cd4bd434c7e3fa4f076821eb312915407d22",
+      "frozen_on": "2026-08-28"
+    },
+    "lcir_no_ast": {
+      "allowance": 3,
+      "iterations_used": 1,
+      "template_sha256": "789c70e6684ed24f625d512d529388f11f46e6f2b98cc5909425e6b9e536f2b5",
+      "frozen_on": "2026-08-28"
+    },
+    "compressed": {
+      "allowance": 3,
+      "iterations_used": 1,
+      "template_sha256": "ca4bdbe0930d6c73fdca877d4b4d1e9a1ebcdb8036eceb41a613cb5c04f62c21",
+      "frozen_on": "2026-08-28"
+    }
+  }
+}

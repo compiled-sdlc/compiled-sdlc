@@ -10,14 +10,36 @@ statement: |
   caller that wants them has to fetch each pet by identifier, which it can only
   do if it already knows the identifiers.
 
-  Add a read operation at GET /owners/{ownerId}/pets that answers with the
-  owner's pets as a JSON array, using the same representation the single-pet
-  read already returns for each element. An owner with no pets is answered with
-  an empty array and 200 OK. An owner that does not exist is answered 404 Not
-  Found.
+  Add a read operation at GET /owners/{ownerId}/pets.
 
   An owner's pets are the ones the owner record already holds; this operation
   reads them, it does not introduce a second place they are kept.
+
+behaviours:
+  - id: lists-the-owners-pets
+    statement: The operation answers 200 with the owner's pets as a JSON array, each element in the same representation the single-pet read already returns.
+  - id: empty-owner-empty-array
+    statement: An owner with no pets is answered 200 with an empty array.
+  - id: unknown-owner-not-found
+    statement: An owner that does not exist is answered 404 Not Found.
+
+boundaries:
+  - id: reuse-the-representation
+    category: compatibility
+    obligation: must
+    statement: Reuse the existing pet representation as it stands; do not redefine it.
+  - id: single-pet-read-unchanged
+    category: compatibility
+    obligation: must
+    statement: The existing single-pet read keeps its path and its behaviour.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: customers-service-only
+    category: architecture
+    obligation: must
+    statement: The feature belongs in the customers service.
 
 context: |
   The single-pet read operation in the customers service already renders a pet

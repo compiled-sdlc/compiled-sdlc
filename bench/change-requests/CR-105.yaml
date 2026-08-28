@@ -12,11 +12,31 @@ statement: |
   connection long enough to exhaust the pool; visit lookups failed across every
   clinic for eleven minutes.
 
-  Bound the request. The batch visit lookup accepts at most 100 pet identifiers:
+  Bound the batch visit lookup at 100 pet identifiers.
 
-  - A request naming 100 or fewer identifiers behaves exactly as it does today.
-  - A request naming more than 100 is answered 400 Bad Request and no query is
-    issued.
+behaviours:
+  - id: at-or-under-the-limit-unchanged
+    statement: A request naming 100 or fewer identifiers behaves exactly as it does today.
+  - id: over-the-limit-rejected
+    statement: A request naming more than 100 identifiers is answered 400 Bad Request and no query is issued.
+
+boundaries:
+  - id: path-unchanged
+    category: compatibility
+    obligation: must
+    statement: The operation keeps its path; callers under the limit see no difference.
+  - id: single-pet-lookups-untouched
+    category: compatibility
+    obligation: must
+    statement: The per-pet lookups are not part of this change.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: visits-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the visits service.
 
 context: |
   The operation is the batch visit lookup in the visits service, the one that

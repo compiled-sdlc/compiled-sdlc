@@ -11,16 +11,39 @@ statement: |
   one: it cannot be correlated with a request, an owner or a pet, so it is no
   use during an incident.
 
-  Make the line identify the visit by the pet identifier it was created for. No
-  object identity hash may appear in it.
+  Give the line the fields it needs instead of the record.
 
-  The description must stay out of the log. It is free text where clinical
-  detail about an animal and its owner ends up, and the log is shipped off the
-  host and retained. Logging the visit object is one refactor away from
-  printing it — give the line the fields it needs instead of the record.
+behaviours:
+  - id: line-identifies-the-visit
+    statement: The creation writes an info line carrying the pet identifier the visit was created for.
+  - id: no-identity-hash
+    statement: No line the operation writes contains an object identity hash.
+  - id: description-never-logged
+    statement: No line the operation writes contains the visit description.
+  - id: response-unchanged
+    statement: The response still answers 201 with the created visit in full, description included.
 
-  The response to the caller does not change: the created visit is still
-  answered in full, description included.
+boundaries:
+  - id: still-logs-at-info
+    category: architecture
+    obligation: must
+    statement: The creation is still recorded at info level; silence is not the fix.
+  - id: fix-in-the-operation
+    category: privacy
+    obligation: must
+    statement: >-
+      The fix belongs in the operation that writes the line, not in the record.
+      The description is free text where clinical detail ends up, and the log is
+      shipped off the host and retained; teaching the record to render itself
+      would put that text one call away from every log statement touching it.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: visits-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the visits service.
 
 context: |
   The behaviour is in the visit creation operation of the visits service. It

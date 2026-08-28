@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from pipelines.common import arms as arms_module
 from pipelines.common import changerequests, executor, locks, telemetry, verify
 from pipelines.common import workspace as workspace_module
 from pipelines.common.changerequests import ChangeRequest
@@ -120,6 +121,7 @@ def run_cell(
         record.write(cell_directory, index=runs_directory / telemetry.INDEX_NAME)
         return record
 
+    allowance = arms_module.allowances().get(cell.arm)
     record.request = {
         "model": model,
         "max_turns": budget.max_turns,
@@ -127,6 +129,9 @@ def run_cell(
         "max_cost_usd": budget.max_cost_usd,
         "tools": list(locks.executor()["invocation"]["tools"]),
         "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+        "prompt_template_sha256": arm.template_digest(),
+        "prompt_iterations_used": allowance.iterations_used if allowance else None,
+        "prompt_iteration_allowance": allowance.allowance if allowance else None,
     }
 
     execution = executor.execute(prompt, workspace, cell_directory, model=model, budget=budget)
@@ -164,6 +169,12 @@ def run_cell(
         }
         if record.status == "completed" and not verification["verified_success"]:
             record.status = "verification_failed"
+        try:
+            record.arm_artifacts = arm.finalise(
+                cell.request, workspace, cell_directory, dict(verification)
+            )
+        except Exception as error:  # noqa: BLE001 - recorded, never fatal to the cell
+            record.arm_artifacts = {"error": f"{type(error).__name__}: {error}"}
 
     diff = workspace_module.git("diff", "--cached", cwd=workspace).stdout
     (cell_directory / "diff.patch").write_text(diff)
@@ -176,6 +187,23 @@ def run_cell(
     record.finished_at = telemetry.now()
     record.write(cell_directory, index=runs_directory / telemetry.INDEX_NAME)
     return record
+
+
+def run(
+    request: ChangeRequest,
+    arm: str,
+    seed: int,
+    *,
+    runs_directory: Path | None = None,
+    **options,
+) -> RunRecord:
+    """Run one change request, on one arm, at one seed, and return its record.
+
+    This is the interface the experiment is defined in terms of. Everything the
+    arms share passes through it; the arm decides only how the change request is
+    represented.
+    """
+    return run_cell(Cell(request, arm, seed), runs_directory or RUNS_DIR, **options)
 
 
 def run_matrix(

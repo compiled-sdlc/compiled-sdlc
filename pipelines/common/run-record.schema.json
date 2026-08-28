@@ -63,7 +63,10 @@
         "wall_clock_seconds": {"type": "number", "exclusiveMinimum": 0},
         "max_cost_usd": {"type": "number", "exclusiveMinimum": 0},
         "tools": {"type": "array", "items": {"type": "string"}},
-        "prompt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        "prompt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "prompt_template_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "prompt_iterations_used": {"type": ["integer", "null"], "minimum": 0},
+        "prompt_iteration_allowance": {"type": ["integer", "null"], "minimum": 0}
       }
     },
     "response": {
@@ -175,6 +178,10 @@
           }
         }
       }
+    },
+    "arm_artifacts": {
+      "description": "What the arm produced beyond the change itself: for the IR arms, whether the agent's transformation plan validated, whether the assembled bundle did, and which projections were rendered.",
+      "type": "object"
     },
     "artifacts": {
       "type": "object",

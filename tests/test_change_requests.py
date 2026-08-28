@@ -62,14 +62,22 @@ def test_every_hidden_check_exists_and_lands_in_its_module(pilot):
 
 
 def test_the_brief_carries_none_of_the_hidden_material(pilot):
-    """What an arm may show the agent, and nothing that decides the outcome."""
+    """What an arm may show the agent, and nothing that decides the outcome.
+
+    A change request states its boundaries openly, and a stated boundary may
+    have the same substance as an invariant the harness scores with — that is
+    what a well-written change request does. What must never reach the agent is
+    the ground truth itself: the identifiers the harness scores by, the patterns
+    it matches, and everything about the hidden checks.
+    """
     for request in pilot:
         rendered = json.dumps(request.brief())
         for invariant in request.must_invariants:
             assert invariant.id not in rendered
-            assert invariant.statement not in rendered
             if invariant.pattern:
                 assert invariant.pattern not in rendered
+            for path in invariant.paths:
+                assert path not in rendered
         for check in request.acceptance:
             assert check.id not in rendered
             assert check.simple_class_name not in rendered
@@ -149,3 +157,28 @@ def test_loading_a_malformed_change_request_raises(tmp_path):
     path.write_text("id: CR-999\ntitle: incomplete\n")
     with pytest.raises(ValueError, match="CR-999.yaml"):
         cr.load(path)
+
+
+def test_the_visible_boundaries_are_not_the_hidden_invariants(pilot):
+    """They may agree on substance; they are separate lists, scored separately."""
+    for request in pilot:
+        stated = {boundary.id for boundary in request.boundaries}
+        scored = {invariant.id for invariant in request.must_invariants}
+        assert stated.isdisjoint(scored)
+        assert all(invariant.id.startswith("invariant:") for invariant in request.must_invariants)
+
+
+def test_every_change_request_decomposes_into_observable_behaviours(pilot):
+    """The arms represent the same content differently, so the content has to be one thing."""
+    for request in pilot:
+        assert request.behaviours, request.id
+        assert len({behaviour.id for behaviour in request.behaviours}) == len(request.behaviours)
+        for behaviour in request.behaviours:
+            assert behaviour.statement.strip()
+
+
+def test_the_brief_carries_the_behaviours_and_boundaries(pilot):
+    for request in pilot:
+        brief = request.brief()
+        assert len(brief["behaviours"]) == len(request.behaviours)
+        assert len(brief["boundaries"]) == len(request.boundaries)

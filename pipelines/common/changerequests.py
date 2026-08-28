@@ -26,7 +26,16 @@ CHECKS_DIR = locks.REPO_ROOT / "bench" / "checks"
 SCHEMA_PATH = locks.REPO_ROOT / "bench" / "change-request.schema.json"
 
 # The only fields an arm may put in front of an agent.
-BRIEF_FIELDS = ("id", "title", "category", "module", "statement", "context")
+BRIEF_FIELDS = (
+    "id",
+    "title",
+    "category",
+    "module",
+    "statement",
+    "context",
+    "behaviours",
+    "boundaries",
+)
 
 CATEGORIES = ("feature", "bug_fix", "non_functional", "incident")
 
@@ -41,6 +50,24 @@ class Invariant:
     paths: tuple[str, ...] = ()
     prefixes: tuple[str, ...] = ()
     pattern: str = ""
+
+
+@dataclass(frozen=True)
+class Behaviour:
+    """One observable outcome that settles the request. Visible to every arm."""
+
+    id: str
+    statement: str
+
+
+@dataclass(frozen=True)
+class Boundary:
+    """A boundary the request states openly. Not the hidden invariant that scores it."""
+
+    id: str
+    category: str
+    obligation: str
+    statement: str
 
 
 @dataclass(frozen=True)
@@ -70,6 +97,8 @@ class ChangeRequest:
     statement: str
     context: str
     needs_stack: bool
+    behaviours: tuple[Behaviour, ...]
+    boundaries: tuple[Boundary, ...]
     must_invariants: tuple[Invariant, ...]
     acceptance: tuple[AcceptanceCheck, ...]
     path: Path
@@ -87,6 +116,18 @@ class ChangeRequest:
             "module": self.module_path,
             "statement": self.statement.strip(),
             "context": self.context.strip(),
+            "behaviours": [
+                {"id": item.id, "statement": item.statement} for item in self.behaviours
+            ],
+            "boundaries": [
+                {
+                    "id": item.id,
+                    "category": item.category,
+                    "obligation": item.obligation,
+                    "statement": item.statement,
+                }
+                for item in self.boundaries
+            ],
         }
 
 
@@ -115,6 +156,18 @@ def parse(document: dict, path: Path) -> ChangeRequest:
         statement=document["statement"],
         context=document.get("context", ""),
         needs_stack=bool(document.get("needs_stack", False)),
+        behaviours=tuple(
+            Behaviour(id=item["id"], statement=item["statement"]) for item in document["behaviours"]
+        ),
+        boundaries=tuple(
+            Boundary(
+                id=item["id"],
+                category=item["category"],
+                obligation=item["obligation"],
+                statement=item["statement"],
+            )
+            for item in document.get("boundaries", ())
+        ),
         must_invariants=tuple(
             Invariant(
                 id=item["id"],

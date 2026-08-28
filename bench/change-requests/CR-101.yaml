@@ -10,14 +10,29 @@ statement: |
   endpoint takes the identifier from the request body instead, so a request to
   update one pet can modify a different one.
 
-  Make the path decide which pet is updated:
+  Make the path decide which pet is updated.
 
-  - A request whose body carries the same identifier as the path updates that
-    pet and answers 204 No Content, as it does today.
-  - A request whose body carries a different identifier changes nothing and is
-    answered 400 Bad Request.
-  - A request for a pet that does not exist is answered 404 Not Found, as it is
-    today.
+behaviours:
+  - id: same-identifier-updates
+    statement: A request whose body carries the same identifier as the path updates that pet and is answered 204 No Content, as it is today.
+  - id: mismatched-identifier-rejected
+    statement: A request whose body carries a different identifier from the path changes nothing and is answered 400 Bad Request.
+  - id: unknown-pet-not-found
+    statement: A request for a pet that does not exist is answered 404 Not Found, as it is today.
+
+boundaries:
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Use what is already on the module's classpath; add no dependency.
+  - id: customers-service-only
+    category: architecture
+    obligation: must
+    statement: The fix belongs in the customers service and must not reach into another service.
+  - id: success-status-unchanged
+    category: compatibility
+    obligation: must
+    statement: The success path keeps answering 204; the change adds a rejection, it does not restyle the success.
 
 context: |
   The endpoint is the pet update operation in the customers service. Every other

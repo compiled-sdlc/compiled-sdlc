@@ -6,7 +6,7 @@
   "description": "One unit of work put to an agent, against the pinned target application. The statement is what an arm renders for the agent; the invariants and the acceptance checks are ground truth the agent never sees, applied by the harness after the run.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "title", "category", "module", "risk_class", "statement", "must_invariants", "acceptance"],
+  "required": ["id", "title", "category", "module", "risk_class", "statement", "behaviours", "must_invariants", "acceptance"],
   "properties": {
     "id": {"type": "string", "pattern": "^CR-[0-9]{3,}$"},
     "title": {"type": "string", "minLength": 1},
@@ -29,6 +29,35 @@
     "context": {
       "description": "Background an arm may also render: where the behaviour lives, what prompted the request.",
       "type": "string"
+    },
+    "behaviours": {
+      "description": "The observable outcomes that settle the request, one per item. Visible to every arm: this is the content the arms represent differently, so it must be the same content in each. It is a decomposition of the statement, not additional information, and it never restates a hidden check.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "statement": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "boundaries": {
+      "description": "Boundaries the request states openly, as any well-written change request would. Distinct from must_invariants: these are told to the agent, those are how the harness scores it. Their substance may overlap; the harness never takes the agent's word for either.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "obligation", "statement"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "category": {"enum": ["security", "privacy", "architecture", "performance", "compatibility", "cost"]},
+          "obligation": {"enum": ["must", "should"]},
+          "statement": {"type": "string", "minLength": 1}
+        }
+      }
     },
     "must_invariants": {
       "description": "Boundaries the change must not cross. Violating one means the change is not a success, however green its acceptance checks.",

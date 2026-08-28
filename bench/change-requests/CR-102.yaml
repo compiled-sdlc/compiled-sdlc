@@ -11,9 +11,27 @@ statement: |
   but the constraint is never applied, so a pet can be created with an empty
   name.
 
-  Make the create operation apply the constraints declared on its request body:
-  a body that violates them is answered 400 Bad Request and creates nothing. A
-  valid body still answers 201 Created with the created pet, as it does today.
+  Make the create operation apply the constraints declared on its request body.
+
+behaviours:
+  - id: invalid-body-rejected
+    statement: A body that violates a constraint declared on it is answered 400 Bad Request and creates nothing.
+  - id: valid-body-still-creates
+    statement: A valid body still answers 201 Created with the created pet, as it does today.
+
+boundaries:
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: The validation the module needs is already on its classpath; add no dependency.
+  - id: constraint-stays-declared
+    category: architecture
+    obligation: must
+    statement: Enforce the constraint the request body already declares rather than deleting it or reimplementing it elsewhere.
+  - id: customers-service-only
+    category: architecture
+    obligation: must
+    statement: The fix belongs in the customers service.
 
 context: |
   The endpoint is the pet creation operation in the customers service. The

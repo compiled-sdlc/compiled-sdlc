@@ -143,6 +143,7 @@ class RunRecord:
     pricing_captured_on: str = ""
     workspace: dict = field(default_factory=dict)
     verification: dict = field(default_factory=dict)
+    arm_artifacts: dict = field(default_factory=dict)
     artifacts: dict = field(default_factory=dict)
 
     @property

@@ -109,19 +109,49 @@ def test_an_isolated_abort_does_not_stop_the_matrix(tmp_path, requests):
     assert len(records) == len(cells)
 
 
-def test_an_unimplemented_arm_is_a_setup_failure_not_a_crash(tmp_path, requests):
+def unpreparable(monkeypatch):
+    """A workspace that cannot be made, as when the target has not been fetched."""
+
+    def refuse(*args, **kwargs):
+        raise runner.workspace_module.WorkspaceError("no target checkout")
+
+    monkeypatch.setattr(runner.workspace_module, "create", refuse)
+
+
+def test_a_cell_that_cannot_be_prepared_is_a_setup_failure_not_a_crash(
+    tmp_path, requests, monkeypatch
+):
+    unpreparable(monkeypatch)
     cell = Cell(requests[0], "lcir", 1)
     record = runner.run_cell(cell, tmp_path)
     assert record.status == "aborted"
     assert record.error_class == "setup_failed"
-    assert "not implemented yet" in record.error_detail
+    assert "no target checkout" in record.error_detail
     assert (tmp_path / cell.run_id / telemetry.RECORD_NAME).exists()
 
 
-def test_a_setup_failure_is_recorded_so_the_cell_is_not_silently_skipped(tmp_path, requests):
+def test_a_setup_failure_is_recorded_so_the_cell_is_not_silently_skipped(
+    tmp_path, requests, monkeypatch
+):
+    unpreparable(monkeypatch)
     cell = Cell(requests[0], "lcir", 1)
     runner.run_cell(cell, tmp_path)
     assert list(telemetry.completed_cells(tmp_path)) == [cell.run_id]
+
+
+def test_a_setup_failure_is_never_charged_to_the_arm(tmp_path, requests, monkeypatch):
+    unpreparable(monkeypatch)
+    record = runner.run_cell(Cell(requests[0], "lcir", 1), tmp_path)
+    assert not telemetry.counts_towards_the_arm(record.status)
+
+
+def test_the_public_entry_point_runs_one_cell(tmp_path, requests, monkeypatch):
+    """run(change request, arm, seed) is the interface the experiment is defined in."""
+    unpreparable(monkeypatch)
+    record = runner.run(requests[0], "baseline", 2, runs_directory=tmp_path)
+    assert record.run_id == telemetry.cell_id(requests[0].id, "baseline", 2)
+    assert record.arm == "baseline"
+    assert record.seed == 2
 
 
 def test_the_arm_registry_names_the_four_arms():
