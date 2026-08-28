@@ -355,3 +355,44 @@ def test_the_toolchain_is_checked_before_a_build_is_attempted(monkeypatch, tmp_p
 
 def test_the_configured_toolchain_is_usable_on_this_machine():
     assert verify.toolchain_problem() is None
+
+
+# --- the arm's artifacts are its input, not the run's output ----------------
+
+
+def test_the_arms_own_artifacts_are_not_counted_as_changes(cell):
+    """An arm that hands over six files has not changed the application six times."""
+    artifacts = cell / workspace_module.ARTIFACT_DIRECTORY
+    artifacts.mkdir()
+    (artifacts / "intent-graph.json").write_text('{"kind": "intent_graph"}\n')
+    (artifacts / "constraint-graph.json").write_text('{"kind": "constraint_graph"}\n')
+    (cell / MODULE / "src" / "main" / "Resource.java").write_text("class Resource { }\n")
+
+    changes = workspace_module.changes(cell)
+    assert changes.files_changed == 1
+    assert changes.changed_paths == (f"{MODULE}/src/main/Resource.java",)
+    assert len(changes.artifact_paths) == 2
+    assert all(
+        path.startswith(f"{workspace_module.ARTIFACT_DIRECTORY}/")
+        for path in changes.artifact_paths
+    )
+
+
+def test_the_arms_artifacts_do_not_trip_a_scope_invariant(cell, pinned_application, pinned_commit):
+    """An arm's own files must not read as the change spreading somewhere it should not."""
+    artifacts = cell / workspace_module.ARTIFACT_DIRECTORY
+    artifacts.mkdir()
+    (artifacts / "intent-graph.json").write_text("{}\n")
+    invariant = an_invariant(
+        kind="paths_untouched", prefixes=(workspace_module.ARTIFACT_DIRECTORY,)
+    )
+    assert evaluate(invariant, cell, pinned_application, pinned_commit)["status"] == verify.PASS
+
+
+def test_insertions_count_only_the_application(cell):
+    artifacts = cell / workspace_module.ARTIFACT_DIRECTORY
+    artifacts.mkdir()
+    (artifacts / "big.json").write_text("\n".join(f'"line {n}"' for n in range(500)) + "\n")
+    (cell / MODULE / "src" / "main" / "Resource.java").write_text("class Resource { }\nint x;\n")
+    changes = workspace_module.changes(cell)
+    assert changes.insertions < 10, "the arm's artifact is not a five-hundred-line change"

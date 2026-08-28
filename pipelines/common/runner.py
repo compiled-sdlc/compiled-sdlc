@@ -218,7 +218,7 @@ def run_matrix(
     records: list[RunRecord] = []
     consecutive_aborts = 0
     for cell in cells:
-        print(f"running {cell.run_id}")
+        print(f"running {cell.run_id}", flush=True)
         record = cell_runner(cell, runs_directory, **cell_options)
         records.append(record)
         detail = f" ({record.error_class})" if record.error_class else ""
@@ -226,7 +226,8 @@ def run_matrix(
             f"  {record.status}{detail}"
             f"  {record.usage.total_tokens} tokens"
             f"  ${record.cost_usd:.4f}"
-            f"  {record.wall_time_seconds:.0f}s"
+            f"  {record.wall_time_seconds:.0f}s",
+            flush=True,
         )
         if record.status == "aborted":
             consecutive_aborts += 1

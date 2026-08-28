@@ -24,11 +24,11 @@ from pathlib import Path
 
 from pipelines.common import locks
 from pipelines.common.changerequests import ChangeRequest
+from pipelines.common.workspace import ARTIFACT_DIRECTORY
 
 ALLOWANCE_LEDGER = locks.REPO_ROOT / "bench" / "prompt-allowance.json"
 
-# Written into every workspace, for every arm.
-ARTIFACT_DIRECTORY = "change-request"
+__all__ = ["ARTIFACT_DIRECTORY", "Allowance", "BaseArm", "allowances", "digest"]
 
 TASK_FRAMING = """\
 You are working in a checkout of the {application} project. Your task concerns

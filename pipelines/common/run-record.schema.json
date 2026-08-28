@@ -148,7 +148,16 @@
         "files_changed": {"type": "integer", "minimum": 0},
         "insertions": {"type": "integer", "minimum": 0},
         "deletions": {"type": "integer", "minimum": 0},
-        "changed_paths": {"type": "array", "items": {"type": "string"}}
+        "changed_paths": {
+          "description": "What the run changed in the application. The arm's own artifacts are not counted here.",
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "artifact_paths": {
+          "description": "What the arm placed in the workspace for the agent to read. Its input, not the run's output.",
+          "type": "array",
+          "items": {"type": "string"}
+        }
       }
     },
     "verification": {
