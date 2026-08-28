@@ -108,9 +108,7 @@ REFERENCES: tuple[Reference, ...] = (
         {"behavior", "acceptance"},
         "plan realises an intent clause",
     ),
-    _ref(
-        "transformation_plan", (), "respects", {"constraint"}, "plan is bounded by a constraint"
-    ),
+    _ref("transformation_plan", (), "respects", {"constraint"}, "plan is bounded by a constraint"),
     _ref(
         "transformation_plan",
         ("components",),
@@ -176,9 +174,7 @@ REFERENCES: tuple[Reference, ...] = (
         "evidence is derived from other evidence",
     ),
     # Provenance Ledger -> everything.
-    _ref(
-        "provenance_ledger", ("entries",), "principal", {"principal"}, "entry records who acted"
-    ),
+    _ref("provenance_ledger", ("entries",), "principal", {"principal"}, "entry records who acted"),
     _ref(
         "provenance_ledger",
         ("entries",),
@@ -200,9 +196,7 @@ REFERENCES: tuple[Reference, ...] = (
         {"edit", "deployment", "rollback"},
         "entry produced or executed a transformation",
     ),
-    _ref(
-        "provenance_ledger", ("entries",), "attests", {"evidence"}, "entry vouches for evidence"
-    ),
+    _ref("provenance_ledger", ("entries",), "attests", {"evidence"}, "entry vouches for evidence"),
     _ref(
         "provenance_ledger",
         ("entries", "approval"),

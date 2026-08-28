@@ -1,0 +1,44 @@
+# Pinned target application for the experiment.
+#
+# The application is never vendored into this repository; `make bench-setup`
+# clones it at the exact commit below into a location that is not tracked here.
+# Every run works from a fresh checkout of this pin, so a result is attributable
+# to one state of one application.
+
+schema_version = 1
+
+[target]
+name = "spring-petclinic-microservices"
+repository = "https://github.com/spring-petclinic/spring-petclinic-microservices.git"
+commit = "3858f9c630cf989bb6809a86edf47c2be78dc9f1"
+commit_date = "2026-08-21T06:42:46Z"
+branch_at_pin = "main"
+license = "Apache-2.0"
+pinned_on = "2026-08-28"
+# Relative to the repository root; excluded from tracking.
+checkout = "bench/target"
+
+[build]
+java_version = "17"
+build_command = "./mvnw --batch-mode clean install -P buildDocker"
+compose_file = "docker-compose.yml"
+up_command = "docker compose up --wait"
+down_command = "docker compose down --volumes --remove-orphans"
+# Probed after the stack reports healthy.
+health_urls = ["http://localhost:8761", "http://localhost:8080"]
+health_timeout_seconds = 600
+
+[test]
+# {module} and {tests} are substituted by the verification harness.
+module_test_command = "./mvnw --batch-mode -pl {module} -am test -Dtest={tests}"
+module_build_command = "./mvnw --batch-mode -pl {module} -am -DskipTests package"
+
+[modules]
+customers = "spring-petclinic-customers-service"
+vets = "spring-petclinic-vets-service"
+visits = "spring-petclinic-visits-service"
+gateway = "spring-petclinic-api-gateway"
+config = "spring-petclinic-config-server"
+discovery = "spring-petclinic-discovery-server"
+admin = "spring-petclinic-admin-server"
+genai = "spring-petclinic-genai-service"

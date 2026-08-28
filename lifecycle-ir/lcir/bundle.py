@@ -98,8 +98,6 @@ def load_bundle(directory: Path) -> tuple[Bundle, list[Problem]]:
             bundle.sources[slot] = path
         except BundleError as exc:
             problems.append(
-                Problem(
-                    "error", "bundle-document", f"{MANIFEST_NAME}#/documents/{slot}", str(exc)
-                )
+                Problem("error", "bundle-document", f"{MANIFEST_NAME}#/documents/{slot}", str(exc))
             )
     return bundle, problems

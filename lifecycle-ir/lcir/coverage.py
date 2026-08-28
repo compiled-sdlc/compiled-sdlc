@@ -82,8 +82,12 @@ def measure(bundle: Bundle, nodes: dict[str, Node]) -> tuple[Coverage, list[Prob
                 coverage.acceptance_discharged += 1
             else:
                 problems.append(
-                    Problem("warning", "untraced-acceptance", node.id,
-                            "no passing evidence discharges this acceptance condition")
+                    Problem(
+                        "warning",
+                        "untraced-acceptance",
+                        node.id,
+                        "no passing evidence discharges this acceptance condition",
+                    )
                 )
         elif node.kind == "constraint" and node.data.get("obligation") == "must":
             coverage.must_constraint_total += 1
@@ -91,8 +95,12 @@ def measure(bundle: Bundle, nodes: dict[str, Node]) -> tuple[Coverage, list[Prob
                 coverage.must_constraint_discharged += 1
             else:
                 problems.append(
-                    Problem("warning", "untraced-constraint", node.id,
-                            "no passing evidence discharges this must-constraint")
+                    Problem(
+                        "warning",
+                        "untraced-constraint",
+                        node.id,
+                        "no passing evidence discharges this must-constraint",
+                    )
                 )
         elif node.kind in {"edit", "deployment"}:
             coverage.transformation_total += 1
@@ -100,21 +108,33 @@ def measure(bundle: Bundle, nodes: dict[str, Node]) -> tuple[Coverage, list[Prob
                 coverage.transformation_with_provenance += 1
             else:
                 problems.append(
-                    Problem("warning", "unattributed-transformation", node.id,
-                            "no ledger entry accounts for this transformation")
+                    Problem(
+                        "warning",
+                        "unattributed-transformation",
+                        node.id,
+                        "no ledger entry accounts for this transformation",
+                    )
                 )
             if node.id in covered_by_evidence:
                 coverage.transformation_with_evidence += 1
             else:
                 problems.append(
-                    Problem("warning", "unverified-transformation", node.id,
-                            "no evidence was observed over this transformation")
+                    Problem(
+                        "warning",
+                        "unverified-transformation",
+                        node.id,
+                        "no evidence was observed over this transformation",
+                    )
                 )
         elif node.kind == "question" and node.data.get("status") == "open":
             coverage.open_questions += 1
             problems.append(
-                Problem("warning", "open-question", node.id,
-                        "this question is unresolved; the intent is not settled")
+                Problem(
+                    "warning",
+                    "open-question",
+                    node.id,
+                    "this question is unresolved; the intent is not settled",
+                )
             )
 
     satisfied_goals = {
@@ -142,9 +162,13 @@ def measure(bundle: Bundle, nodes: dict[str, Node]) -> tuple[Coverage, list[Prob
             }
             if not acceptance & implemented_clauses:
                 problems.append(
-                    Problem("warning", "unimplemented-behavior", node.id,
-                            "no code or deployment change implements this behavior, "
-                            "directly or through one of its acceptance conditions")
+                    Problem(
+                        "warning",
+                        "unimplemented-behavior",
+                        node.id,
+                        "no code or deployment change implements this behavior, "
+                        "directly or through one of its acceptance conditions",
+                    )
                 )
     return coverage, problems
 

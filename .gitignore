@@ -8,6 +8,9 @@ docs/
 *_BRIEF*.md
 notes/
 
+# target application — fetched at its pin by make bench-setup
+bench/target/
+
 # generated outputs — regenerable via make
 figures/*
 !figures/.gitkeep

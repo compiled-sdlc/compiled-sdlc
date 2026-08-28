@@ -23,6 +23,10 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
 
+[tool.ruff.lint.isort]
+# The IR validator package and the pipelines live in the tree, not in the environment.
+known-first-party = ["lcir", "pipelines"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

@@ -54,26 +54,42 @@ def check_headers(bundle: Bundle) -> list[Problem]:
         document = bundle.documents.get(slot)
         if document is None:
             problems.append(
-                Problem("error", "bundle-incomplete", f"bundle.json#/documents/{slot}",
-                        "the manifest does not name a readable document for this slot")
+                Problem(
+                    "error",
+                    "bundle-incomplete",
+                    f"bundle.json#/documents/{slot}",
+                    "the manifest does not name a readable document for this slot",
+                )
             )
             continue
         if document.get("kind") != slot:
             problems.append(
-                Problem("error", "document-kind", f"{slot}#/kind",
-                        f"document declares kind {document.get('kind')!r} in the {slot} slot")
+                Problem(
+                    "error",
+                    "document-kind",
+                    f"{slot}#/kind",
+                    f"document declares kind {document.get('kind')!r} in the {slot} slot",
+                )
             )
         if document.get("ir_version") != version:
             problems.append(
-                Problem("error", "version-mismatch", f"{slot}#/ir_version",
-                        f"document declares {document.get('ir_version')!r}, "
-                        f"the manifest declares {version!r}")
+                Problem(
+                    "error",
+                    "version-mismatch",
+                    f"{slot}#/ir_version",
+                    f"document declares {document.get('ir_version')!r}, "
+                    f"the manifest declares {version!r}",
+                )
             )
         if document.get("change_request") != change_request:
             problems.append(
-                Problem("error", "change-request-mismatch", f"{slot}#/change_request",
-                        f"document declares {document.get('change_request')!r}, "
-                        f"the manifest declares {change_request!r}")
+                Problem(
+                    "error",
+                    "change-request-mismatch",
+                    f"{slot}#/change_request",
+                    f"document declares {document.get('change_request')!r}, "
+                    f"the manifest declares {change_request!r}",
+                )
             )
     return problems
 
@@ -96,16 +112,24 @@ def check_references(bundle: Bundle, nodes: dict[str, Node]) -> list[Problem]:
                 target = nodes.get(value)
                 if target is None:
                     problems.append(
-                        Problem("error", "dangling-reference", f"{where}.{reference.field}",
-                                f"points at {value!r}, which no document in the bundle defines "
-                                f"({reference.description})")
+                        Problem(
+                            "error",
+                            "dangling-reference",
+                            f"{where}.{reference.field}",
+                            f"points at {value!r}, which no document in the bundle defines "
+                            f"({reference.description})",
+                        )
                     )
                 elif target.kind not in reference.targets:
                     expected = ", ".join(sorted(reference.targets))
                     problems.append(
-                        Problem("error", "reference-kind", f"{where}.{reference.field}",
-                                f"points at {value!r}, a {target.kind} node; "
-                                f"this edge accepts {expected}")
+                        Problem(
+                            "error",
+                            "reference-kind",
+                            f"{where}.{reference.field}",
+                            f"points at {value!r}, a {target.kind} node; "
+                            f"this edge accepts {expected}",
+                        )
                     )
     return problems
 
@@ -126,9 +150,12 @@ def check_ledger_chain(bundle: Bundle) -> list[Problem]:
             continue
         if sequence in by_sequence:
             problems.append(
-                Problem("error", "ledger-sequence", entry.get("id", "?"),
-                        f"sequence {sequence} is already used by "
-                        f"{by_sequence[sequence].get('id')!r}")
+                Problem(
+                    "error",
+                    "ledger-sequence",
+                    entry.get("id", "?"),
+                    f"sequence {sequence} is already used by {by_sequence[sequence].get('id')!r}",
+                )
             )
             continue
         by_sequence[sequence] = entry
@@ -136,8 +163,12 @@ def check_ledger_chain(bundle: Bundle) -> list[Problem]:
     expected = set(range(1, len(by_sequence) + 1))
     for missing in sorted(expected - by_sequence.keys()):
         problems.append(
-            Problem("error", "ledger-sequence", "provenance_ledger",
-                    f"the chain has no entry with sequence {missing}")
+            Problem(
+                "error",
+                "ledger-sequence",
+                "provenance_ledger",
+                f"the chain has no entry with sequence {missing}",
+            )
         )
 
     for sequence, entry in sorted(by_sequence.items()):
@@ -145,8 +176,12 @@ def check_ledger_chain(bundle: Bundle) -> list[Problem]:
         if sequence == 1:
             if previous is not None:
                 problems.append(
-                    Problem("error", "ledger-chain", entry.get("id", "?"),
-                            "the first entry must not name a predecessor")
+                    Problem(
+                        "error",
+                        "ledger-chain",
+                        entry.get("id", "?"),
+                        "the first entry must not name a predecessor",
+                    )
                 )
             continue
         predecessor = by_sequence.get(sequence - 1)
@@ -154,9 +189,13 @@ def check_ledger_chain(bundle: Bundle) -> list[Problem]:
             continue
         if previous != predecessor.get("id"):
             problems.append(
-                Problem("error", "ledger-chain", entry.get("id", "?"),
-                        f"names {previous!r} as its predecessor, but the entry at sequence "
-                        f"{sequence - 1} is {predecessor.get('id')!r}")
+                Problem(
+                    "error",
+                    "ledger-chain",
+                    entry.get("id", "?"),
+                    f"names {previous!r} as its predecessor, but the entry at sequence "
+                    f"{sequence - 1} is {predecessor.get('id')!r}",
+                )
             )
     return problems
 
@@ -175,9 +214,13 @@ def check_autonomy_tier(bundle: Bundle) -> list[Problem]:
         if isinstance(approval, dict) and approval.get("tier") == tier:
             return []
     return [
-        Problem("error", "tier-approval-missing", "provenance_ledger.entries",
-                f"the constraint graph assigns autonomy tier {tier}, which requires a human "
-                f"decision, but no ledger entry records an approval at that tier")
+        Problem(
+            "error",
+            "tier-approval-missing",
+            "provenance_ledger.entries",
+            f"the constraint graph assigns autonomy tier {tier}, which requires a human "
+            f"decision, but no ledger entry records an approval at that tier",
+        )
     ]
 
 
@@ -206,9 +249,13 @@ def check_check_references(bundle: Bundle, nodes: dict[str, Node]) -> list[Probl
         if check not in expected:
             named = ", ".join(sorted(str(ref) for ref in expected if ref))
             problems.append(
-                Problem("error", "check-mismatch", f"{item.get('id', '?')}.check",
-                        f"names {check!r}, but the acceptance conditions it discharges are "
-                        f"decided by {named or 'no check'}")
+                Problem(
+                    "error",
+                    "check-mismatch",
+                    f"{item.get('id', '?')}.check",
+                    f"names {check!r}, but the acceptance conditions it discharges are "
+                    f"decided by {named or 'no check'}",
+                )
             )
     return problems
 
@@ -223,7 +270,7 @@ def _cycles(edges: dict[str, list[str]]) -> list[list[str]]:
         stack.append(node)
         for successor in edges.get(node, []):
             if state.get(successor) == 1:
-                found.append(stack[stack.index(successor):] + [successor])
+                found.append(stack[stack.index(successor) :] + [successor])
             elif state.get(successor, 0) == 0 and successor in edges:
                 visit(successor, stack)
         stack.pop()
@@ -244,9 +291,7 @@ def check_acyclic(bundle: Bundle) -> list[Problem]:
     }
     for label, edges in graphs.items():
         for cycle in _cycles(edges):
-            problems.append(
-                Problem("error", "cycle", label, " -> ".join(cycle))
-            )
+            problems.append(Problem("error", "cycle", label, " -> ".join(cycle)))
     return problems
 
 

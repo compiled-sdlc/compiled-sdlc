@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+
 from lcir import coverage as coverage_module
 from lcir.bundle import Bundle, load_bundle
 from lcir.cli import main, validate_bundle_at

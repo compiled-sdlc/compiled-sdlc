@@ -20,15 +20,18 @@ def schema_path(name: str) -> Path:
 @lru_cache(maxsize=1)
 def load_schemas() -> dict[str, dict]:
     """Every schema document, keyed by its short name."""
-    return {p.name.removesuffix(".schema.json"): json.loads(p.read_text()) for p in
-            sorted(SCHEMA_DIR.glob("*.schema.json"))}
+    return {
+        p.name.removesuffix(".schema.json"): json.loads(p.read_text())
+        for p in sorted(SCHEMA_DIR.glob("*.schema.json"))
+    }
 
 
 @lru_cache(maxsize=1)
 def registry() -> Registry:
     """A resolver over the local schema set, keyed by each schema's own $id."""
-    resources = [(schema["$id"], Resource.from_contents(schema)) for schema in
-                 load_schemas().values()]
+    resources = [
+        (schema["$id"], Resource.from_contents(schema)) for schema in load_schemas().values()
+    ]
     return Registry().with_resources(resources)
 
 
