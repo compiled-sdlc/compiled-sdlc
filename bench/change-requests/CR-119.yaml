@@ -1,0 +1,90 @@
+id: CR-119
+title: A caller cannot choose a visit's identifier
+category: bug_fix
+modules: [visits]
+risk_class: elevated
+needs_stack: false
+difficulty: refactor_under_constraint
+difficulty_rationale: >-
+  The create endpoint binds the persistence entity straight out of the request
+  body, so the identifier the database is supposed to assign is a field the
+  caller can fill in --- and a filled-in identifier turns a create into an
+  overwrite of whatever visit already has it. The one-line repairs are both
+  closed: the entity may not be annotated, because it is the mapping the module
+  shares and its builder is used by the module's own tests, and clearing the
+  field after binding leaves the endpoint answering success to a request it did
+  not honour. What is left is to stop binding the entity to the wire.
+
+statement: |
+  Creating a visit binds the request body onto the stored record itself,
+  identifier included. A caller that sends an identifier is not creating a
+  visit; it is replacing whichever visit already has that identifier.
+
+  A create that carries an identifier must be refused as a bad request, and
+  nothing must be stored. A create that carries none is stored exactly as it is
+  today, with the pet taken from the path and the answer carrying the same
+  fields it carries now.
+
+behaviours:
+  - id: supplied-identifier-refused
+    statement: A create whose body carries an identifier is answered 400 and stores nothing.
+  - id: create-otherwise-unchanged
+    statement: A create with no identifier is stored as it is today, with the pet taken from the path.
+  - id: stored-record-has-no-caller-identifier
+    statement: What is stored never carries an identifier that came from the caller.
+  - id: answer-unchanged
+    statement: The answer carries the same fields it carries today.
+
+boundaries:
+  - id: entity-unchanged
+    category: architecture
+    obligation: must
+    statement: >-
+      The visit entity is the persistence mapping the module shares, and its
+      builder is used elsewhere; what a caller may send is not part of it.
+  - id: refuse-do-not-ignore
+    category: security
+    obligation: must
+    statement: >-
+      A request that asked for something the service will not do is refused, not
+      quietly answered as though it had been honoured.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: visits-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the visits service.
+
+context: |
+  Creating a visit is in the visits service's web layer. The request body is
+  bound to the entity, the pet is set from the path, and the entity is saved.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/model/Visit.java
+    statement: The visit entity is the persistence mapping and is not where a request is refused.
+  - id: invariant:visits-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the visits service.
+
+acceptance:
+  - id: check:visits.create.no-caller-identifier
+    module: visits
+    source: bench/checks/CR-119/VisitIdentifierAcceptanceTest.java
+    destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/VisitIdentifierAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.visits.web.VisitIdentifierAcceptanceTest
+    statement: A supplied identifier is refused and stores nothing; a create without one is unchanged and stores no caller identifier.

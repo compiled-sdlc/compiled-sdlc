@@ -1,0 +1,90 @@
+id: CR-112
+title: Creating an owner is idempotent under a caller-supplied key
+category: feature
+modules: [customers]
+risk_class: standard
+needs_stack: false
+difficulty: refactor_under_constraint
+difficulty_rationale: >-
+  Remembering the answer to a key is the easy half, and a map on the resource
+  does it. The half that is usually missed is that a key is a promise about one
+  request: the same key with a different body is a caller error and must be
+  refused, not quietly answered with the first owner. Doing that means keeping
+  what was asked as well as what was answered. The entity is closed and no
+  dependency may be added, so there is nowhere to put the record but the web
+  layer, where the object is a singleton shared by every request thread.
+
+statement: |
+  A client that retries a create because it never saw the first answer creates a
+  second owner. There is no way for it to say that the second request is the
+  same request as the first.
+
+  Let a caller send an Idempotency-Key header with a create. The first request
+  under a key is created as it is today. A repeat of the same request under the
+  same key is answered 200 with the owner that was created the first time, and
+  creates nothing. A different request under a key already used is refused as a
+  conflict. A create with no key behaves exactly as it does today.
+
+behaviours:
+  - id: first-request-creates
+    statement: The first create under a key is answered 201 with the created owner, as it is today.
+  - id: repeat-returns-the-first-answer
+    statement: A repeat of the same body under the same key is answered 200 with the owner from the first request, and saves nothing.
+  - id: same-key-different-body-conflicts
+    statement: A different body under a key that has already been used is answered 409 and saves nothing.
+  - id: different-key-creates-again
+    statement: A create under a key that has not been used is created normally.
+  - id: no-key-unchanged
+    statement: A create with no Idempotency-Key header behaves exactly as it does today.
+
+boundaries:
+  - id: shared-across-requests
+    category: architecture
+    obligation: must
+    statement: >-
+      The web layer object is one instance serving every request thread. Whatever
+      remembers the keys is touched concurrently.
+  - id: entity-unchanged
+    category: architecture
+    obligation: must
+    statement: The owner entity is the persistence mapping; a request key is not part of it.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: customers-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the customers service.
+
+context: |
+  Creating an owner is in the customers service's web layer. It maps the request
+  body onto a new entity and saves it.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/model/Owner.java
+    statement: The owner entity is the persistence mapping and is not where a request key is kept.
+  - id: invariant:customers-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-vets-service
+      - spring-petclinic-visits-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the customers service.
+
+acceptance:
+  - id: check:customers.owners.idempotent-create
+    module: customers
+    source: bench/checks/CR-112/OwnerIdempotentCreateAcceptanceTest.java
+    destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/OwnerIdempotentCreateAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.customers.web.OwnerIdempotentCreateAcceptanceTest
+    statement: A key makes a repeat free, a reused key with a different body a conflict, and no key unchanged.

@@ -1,0 +1,102 @@
+id: CR-114
+title: A repeated pet in a batch visit lookup is asked for once
+category: incident
+modules: [visits]
+risk_class: elevated
+needs_stack: false
+difficulty: misleading_obvious_fix
+difficulty_rationale: >-
+  The obvious reading of "the same visit came back more than once" is a problem
+  with the answer, and the obvious repair is to collapse the list on the way
+  out, which leaves the query exactly as wasteful as it was. The repair has to
+  be made to the identifiers on the way in. The second trap is in how they are
+  collapsed: the natural choice of an unordered set changes the order the caller
+  gave, and the caller's order is the order of the answer.
+
+statement: |
+  A caller that assembles its list of pets from more than one place sends the
+  same pet more than once. The batch visit lookup passes the list straight to
+  the database, so a caller that repeats a pet a hundred times asks the database
+  for that pet a hundred times.
+
+  Collapse repeated pet identifiers before the lookup is made, keeping them in
+  the order they were first given, and answer with each visit once.
+
+behaviours:
+  - id: repeats-collapsed-before-the-lookup
+    statement: A pet named more than once in the request is asked for once.
+  - id: first-seen-order-kept
+    statement: The identifiers are kept in the order they were first given.
+  - id: each-visit-once
+    statement: The answer carries each visit once.
+  - id: distinct-request-unchanged
+    statement: A request whose pets are already distinct behaves exactly as it does today.
+
+boundaries:
+  - id: fix-the-question-not-the-answer
+    category: performance
+    obligation: must
+    statement: >-
+      The cost being paid is in the query. Collapsing the result after the query
+      leaves that cost where it is.
+  - id: entity-unchanged
+    category: architecture
+    obligation: must
+    statement: The visit entity is the persistence mapping and is not part of this.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: visits-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the visits service.
+
+context: |
+  The batch lookup is in the visits service's web layer. It takes the pet
+  identifiers as a request parameter and hands them to the repository as they
+  arrived.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass, including the one asserting the batch answer.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/model/Visit.java
+    statement: The visit entity is the persistence mapping and is not part of this change.
+  - id: invariant:visits-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the visits service.
+
+evidence:
+  captured_on: "2026-08-28"
+  summary: >-
+    Captured from the pinned stack. The same pet named once, named five hundred
+    times, and named inside a mixed list. All three answers carry the same
+    visits; the request that repeats the pet is the one that takes longer.
+  artifacts:
+    - id: evidence:repeated-identifiers
+      kind: http_transcript
+      path: bench/evidence/CR-114/repeated-identifiers.txt
+      caption: Three lookups against the visits service, differing only in how often a pet is named.
+    - id: evidence:visits-log
+      kind: service_log
+      path: bench/evidence/CR-114/visits-service.log
+      caption: What the visits service logged while answering them.
+
+acceptance:
+  - id: check:visits.batch.repeats-collapsed
+    module: visits
+    source: bench/checks/CR-114/BatchVisitRepeatAcceptanceTest.java
+    destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/BatchVisitRepeatAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.visits.web.BatchVisitRepeatAcceptanceTest
+    statement: The repository is asked once for each distinct pet, in first-seen order, and the answer carries each visit once.

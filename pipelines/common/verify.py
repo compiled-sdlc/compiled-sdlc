@@ -52,6 +52,16 @@ def outcome(identifier: str, kind: str, status: str, detail: str = "") -> dict:
     return {"id": identifier, "kind": kind, "status": status, "detail": detail}
 
 
+# When several modules are verified, the whole is only as good as its worst part.
+SEVERITY = {PASS: 0, NOT_RUN: 1, ERROR: 2, FAIL: 3}
+
+
+def worst(statuses) -> str:
+    """The least good of several statuses, or not-run when there are none."""
+    collected = list(statuses)
+    return max(collected, key=lambda status: SEVERITY.get(status, 2)) if collected else NOT_RUN
+
+
 # --- invariants ------------------------------------------------------------
 
 
@@ -80,12 +90,19 @@ def check_invariant(
         return outcome(invariant.id, kind, module_tests, "the module's own test suite")
 
     if kind == "no_new_dependency":
-        pom = f"{request.module_path}/pom.xml"
-        before = workspace_module.content_at_pin(pom, checkout, commit)
-        current = (workspace / pom).read_text() if (workspace / pom).exists() else None
-        if before is None or current is None:
-            return outcome(invariant.id, kind, ERROR, f"could not read {pom}")
-        added = dependencies(current) - dependencies(before)
+        # Every module the request names, so a cross-service change cannot pay for
+        # itself with a dependency on the far side of the boundary.
+        added: set[str] = set()
+        for module_path in request.module_paths:
+            pom = f"{module_path}/pom.xml"
+            before = workspace_module.content_at_pin(pom, checkout, commit)
+            current = (workspace / pom).read_text() if (workspace / pom).exists() else None
+            if before is None or current is None:
+                return outcome(invariant.id, kind, ERROR, f"could not read {pom}")
+            added |= {
+                f"{module_path}: {added_one}"
+                for added_one in dependencies(current) - dependencies(before)
+            }
         if added:
             return outcome(invariant.id, kind, FAIL, "added " + ", ".join(sorted(added)))
         return outcome(invariant.id, kind, PASS)
@@ -215,6 +232,32 @@ def run_module_tests(
 # --- the whole verification ------------------------------------------------
 
 
+def place_for(request: ChangeRequest, module: str, workspace: Path) -> list[Path]:
+    return place(request.checks_for(module), workspace)
+
+
+def run_stack() -> tuple[bool, str]:
+    """Bring the local stack up for a change request that needs it."""
+    settings = locks.target()["build"]
+    started = subprocess.run(
+        settings["up_command"].split(),
+        cwd=locks.REPO_ROOT,
+        capture_output=True,
+        text=True,
+        env=toolchain.environment(),
+    )
+    return started.returncode == 0, started.stdout[-1000:] + started.stderr[-1000:]
+
+
+def stop_stack() -> None:
+    subprocess.run(
+        locks.target()["build"]["down_command"].split(),
+        cwd=locks.REPO_ROOT,
+        capture_output=True,
+        check=False,
+    )
+
+
 def verify(
     request: ChangeRequest,
     workspace: Path,
@@ -223,27 +266,69 @@ def verify(
     checkout: Path | None = None,
     commit: str | None = None,
     runner=run_module_tests,
+    stack: bool | None = None,
 ) -> dict:
-    """Everything the harness decides after the agent has finished."""
+    """Everything the harness decides after the agent has finished.
+
+    A change request that names more than one module is verified in each of
+    them: the module's own suite must still pass, and the hidden checks that
+    declare that module are placed there, run, and withdrawn.
+    """
     changes = workspace_module.changes(workspace)
-    module_path = request.module_path
+    wants_stack = request.needs_stack if stack is None else stack
 
-    module_tests = NOT_RUN
-    if any(item.kind == "module_tests_pass" for item in request.must_invariants):
-        outcome_of_suite = runner(workspace, module_path, [], timeout)
-        module_tests = outcome_of_suite["status"]
+    stack_detail = ""
+    if wants_stack:
+        running, stack_detail = run_stack()
+        if not running:
+            return {
+                "verified_success": False,
+                "acceptance": {
+                    "status": ERROR,
+                    "detail": f"the change request needs the running stack, which did not "
+                    f"start: {stack_detail[:400]}",
+                    "checks": [
+                        {"id": check.id, "test_class": check.test_class}
+                        for check in request.acceptance
+                    ],
+                    "per_module": {},
+                },
+                "invariants": [
+                    outcome(item.id, item.kind, NOT_RUN, "the stack did not start")
+                    for item in request.must_invariants
+                ],
+                "violated": [item.id for item in request.must_invariants],
+                "changes": changes.to_dict(),
+                "needed_stack": True,
+            }
 
-    placed = place(request.acceptance, workspace)
     try:
-        acceptance = runner(
-            workspace,
-            module_path,
-            [check.simple_class_name for check in request.acceptance],
-            timeout,
-        )
-    finally:
-        withdraw(placed)
+        suites: dict[str, str] = {}
+        if any(item.kind == "module_tests_pass" for item in request.must_invariants):
+            for module_path in request.module_paths:
+                suites[module_path] = runner(workspace, module_path, [], timeout)["status"]
+        module_tests = worst(suites.values()) if suites else NOT_RUN
 
+        per_module: dict[str, dict] = {}
+        for module, module_path in zip(request.modules, request.module_paths, strict=True):
+            checks = request.checks_for(module)
+            if not checks:
+                continue
+            placed = place(checks, workspace)
+            try:
+                per_module[module_path] = runner(
+                    workspace,
+                    module_path,
+                    [check.simple_class_name for check in checks],
+                    timeout,
+                )
+            finally:
+                withdraw(placed)
+    finally:
+        if wants_stack:
+            stop_stack()
+
+    acceptance_status = worst(result["status"] for result in per_module.values())
     invariants = [
         check_invariant(
             invariant,
@@ -259,18 +344,33 @@ def verify(
 
     violated = [item["id"] for item in invariants if item["status"] != PASS]
     return {
-        "verified_success": acceptance["status"] == PASS and not violated,
+        "verified_success": acceptance_status == PASS and not violated,
         "acceptance": {
-            "status": acceptance["status"],
-            "detail": acceptance.get("detail", ""),
-            "command": acceptance.get("command", ""),
-            "duration_seconds": acceptance.get("duration_seconds", 0.0),
-            "reports": acceptance.get("reports", {}),
+            "status": acceptance_status,
+            "detail": " | ".join(
+                f"{module}: {result['detail'][:300]}"
+                for module, result in per_module.items()
+                if result["status"] != PASS
+            ),
+            "duration_seconds": sum(
+                result.get("duration_seconds", 0.0) for result in per_module.values()
+            ),
+            "per_module": {
+                module: {
+                    "status": result["status"],
+                    "command": result.get("command", ""),
+                    "reports": result.get("reports", {}),
+                }
+                for module, result in per_module.items()
+            },
+            "module_suites": suites,
             "checks": [
-                {"id": check.id, "test_class": check.test_class} for check in request.acceptance
+                {"id": check.id, "module": check.module, "test_class": check.test_class}
+                for check in request.acceptance
             ],
         },
         "invariants": invariants,
         "violated": violated,
         "changes": changes.to_dict(),
+        "needed_stack": wants_stack,
     }

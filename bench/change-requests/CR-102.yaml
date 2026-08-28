@@ -1,9 +1,12 @@
 id: CR-102
 title: Pet creation rejects an invalid request body
 category: bug_fix
-module: customers
+modules: [customers]
 risk_class: standard
 needs_stack: false
+difficulty: single_endpoint
+difficulty_rationale: >-
+  One missing annotation. Retained as a floor: it is the cheapest change in the set, and an arm that cannot do this cannot do any of the others.
 
 statement: |
   Creating a pet accepts a request body that fails its own declared
@@ -61,6 +64,7 @@ must_invariants:
 
 acceptance:
   - id: check:customers.pet-create.rejects-invalid-body
+    module: customers
     source: bench/checks/CR-102/PetCreationValidationAcceptanceTest.java
     destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/PetCreationValidationAcceptanceTest.java
     test_class: org.springframework.samples.petclinic.customers.web.PetCreationValidationAcceptanceTest

@@ -1,9 +1,12 @@
 id: CR-103
 title: List an owner's pets
 category: feature
-module: customers
+modules: [customers]
 risk_class: low
 needs_stack: false
+difficulty: single_endpoint
+difficulty_rationale: >-
+  A read endpoint over data the owner record already holds. Retained as the feature-category floor.
 
 statement: |
   There is no way to ask the customers service for all of an owner's pets. A
@@ -73,6 +76,7 @@ must_invariants:
 
 acceptance:
   - id: check:customers.owner-pets.list
+    module: customers
     source: bench/checks/CR-103/OwnerPetsListAcceptanceTest.java
     destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/OwnerPetsListAcceptanceTest.java
     test_class: org.springframework.samples.petclinic.customers.web.OwnerPetsListAcceptanceTest

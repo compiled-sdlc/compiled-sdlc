@@ -1,0 +1,93 @@
+id: CR-109
+title: Keep owner contact details out of the logs
+category: non_functional
+modules: [customers]
+risk_class: elevated
+needs_stack: false
+difficulty: invariant_tripping_nfr
+difficulty_rationale: >-
+  Updating an owner logs the owner record, and that record renders itself with
+  address, city and telephone. The obvious fix is to trim the record's own
+  rendering, which the file-unchanged invariant forbids --- and rightly: the
+  rendering is used elsewhere, and an agent that quietly changes it has moved
+  the problem rather than fixed it. The fix has to be made where the line is
+  written, and the operation must go on logging at info.
+
+statement: |
+  Updating an owner writes the owner record to the application log at info
+  level. The record renders itself with the owner's address, city and telephone
+  number, so every update puts a person's contact details into a log that is
+  shipped off the host and retained.
+
+  Stop the contact details reaching the log.
+
+behaviours:
+  - id: address-never-logged
+    statement: No line the update operation writes contains the owner's address.
+  - id: city-never-logged
+    statement: No line the update operation writes contains the owner's city.
+  - id: telephone-never-logged
+    statement: No line the update operation writes contains the owner's telephone number.
+  - id: still-logs-the-update
+    statement: The update still writes an info line, and that line carries the owner's identifier.
+  - id: response-unchanged
+    statement: The update still answers 204 No Content.
+
+boundaries:
+  - id: record-rendering-unchanged
+    category: privacy
+    obligation: must
+    statement: >-
+      The owner record's own rendering is used in more than one place and is not
+      the thing to change; the fix belongs where the line is written.
+  - id: still-logs-at-info
+    category: architecture
+    obligation: must
+    statement: The update is still recorded at info level; silence is not the fix.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: customers-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the customers service.
+
+context: |
+  The behaviour is in the owner update operation of the customers service.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:record-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/model/Owner.java
+    statement: >-
+      The owner record is not the thing to change. Its rendering is used
+      elsewhere, and trimming it moves the problem instead of fixing it.
+  - id: invariant:still-logs-the-update
+    kind: text_present
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/web/OwnerResource.java
+    pattern: "log\\.info"
+    statement: The operation must still record that an owner was updated.
+  - id: invariant:customers-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-visits-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the customers service.
+
+acceptance:
+  - id: check:customers.owner-update.contact-details-not-logged
+    module: customers
+    source: bench/checks/CR-109/OwnerLoggingAcceptanceTest.java
+    destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/OwnerLoggingAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.customers.web.OwnerLoggingAcceptanceTest
+    statement: No log line carries the address, city or telephone; an info line still carries the identifier; the response is still 204.

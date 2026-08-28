@@ -41,65 +41,92 @@ def compiled(detail: str) -> bool:
 
 
 def calibrate(request: changerequests.ChangeRequest, cell: Path, timeout: float) -> dict:
-    """Run one change request's ground truth against the unmodified pin."""
+    """Run one change request's ground truth against the unmodified pin.
+
+    A request may name more than one module. Each named module's own suite has
+    to be green, and each module's own hidden checks have to be red, so a
+    cross-service change is calibrated on both sides of the boundary.
+    """
     workspace = workspace_module.create(cell)
-    module_path = request.module_path
     findings: list[str] = []
     started = time.monotonic()
+    suites: dict[str, str] = {}
+    per_module: dict[str, dict] = {}
     try:
-        suite = verify.run_module_tests(workspace, module_path, [], timeout)
-        if suite["status"] != verify.PASS:
-            findings.append(f"the module's own suite is {suite['status']} on the pristine pin")
+        for module_path in request.module_paths:
+            suite = verify.run_module_tests(workspace, module_path, [], timeout)
+            suites[module_path] = suite["status"]
+            if suite["status"] != verify.PASS:
+                findings.append(
+                    f"{module_path}: the module's own suite is {suite['status']} "
+                    f"on the pristine pin"
+                )
 
         changes = workspace_module.changes(workspace)
+        module_tests = verify.worst(suites.values())
         invariants = [
-            verify.check_invariant(item, request, workspace, changes, module_tests=suite["status"])
+            verify.check_invariant(item, request, workspace, changes, module_tests=module_tests)
             for item in request.must_invariants
         ]
         for item in invariants:
             if item["status"] != verify.PASS:
                 findings.append(f"{item['id']} is {item['status']} before any change")
 
-        placed = verify.place(request.acceptance, workspace)
-        try:
-            acceptance = verify.run_module_tests(
-                workspace,
-                module_path,
-                [check.simple_class_name for check in request.acceptance],
-                timeout,
-            )
-        finally:
-            verify.withdraw(placed)
+        for module, module_path in zip(request.modules, request.module_paths, strict=True):
+            checks = request.checks_for(module)
+            if not checks:
+                continue
+            placed = verify.place(checks, workspace)
+            try:
+                outcome = verify.run_module_tests(
+                    workspace,
+                    module_path,
+                    [check.simple_class_name for check in checks],
+                    timeout,
+                )
+            finally:
+                verify.withdraw(placed)
+            per_module[module_path] = outcome
 
-        if acceptance["status"] == verify.PASS:
-            findings.append(
-                "the hidden checks pass on the unmodified pin, so they cannot "
-                "discriminate a real change from no change at all"
-            )
-        elif acceptance["status"] == verify.ERROR:
-            findings.append(f"the hidden checks could not be run: {acceptance['detail'][:200]}")
-        elif not compiled(acceptance["detail"]):
-            findings.append(
-                "the hidden checks do not compile against the pin, so they are red "
-                "for the wrong reason"
-            )
+            if outcome["status"] == verify.PASS:
+                findings.append(
+                    f"{module_path}: the hidden checks pass on the unmodified pin, so "
+                    f"they cannot discriminate a real change from no change at all"
+                )
+            elif outcome["status"] == verify.ERROR:
+                findings.append(
+                    f"{module_path}: the hidden checks could not be run: {outcome['detail'][:200]}"
+                )
+            elif not compiled(outcome["detail"]):
+                findings.append(
+                    f"{module_path}: the hidden checks do not compile against the pin, "
+                    f"so they are red for the wrong reason"
+                )
     finally:
         workspace_module.remove(workspace)
 
     return {
         "change_request": request.id,
-        "module": module_path,
+        "modules": list(request.module_paths),
         "needs_stack": request.needs_stack,
-        "module_suite": suite["status"],
+        "module_suite": verify.worst(suites.values()),
+        "module_suites": suites,
         "invariants": [
             {"id": item["id"], "kind": item["kind"], "status": item["status"]}
             for item in invariants
         ],
         "acceptance": {
-            "status": acceptance["status"],
+            "status": verify.worst(outcome["status"] for outcome in per_module.values()),
             "checks": [check.id for check in request.acceptance],
-            "reports": acceptance.get("reports", {}),
-            "compiled": compiled(acceptance.get("detail", "")),
+            "compiled": all(compiled(outcome.get("detail", "")) for outcome in per_module.values()),
+            "per_module": {
+                module_path: {
+                    "status": outcome["status"],
+                    "reports": outcome.get("reports", {}),
+                    "compiled": compiled(outcome.get("detail", "")),
+                }
+                for module_path, outcome in per_module.items()
+            },
         },
         "calibrated": not findings,
         "findings": findings,
@@ -127,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
 
     results = []
     for request in requests:
-        print(f"calibrating {request.id} ({request.module_path})", flush=True)
+        print(f"calibrating {request.id} ({', '.join(request.module_paths)})", flush=True)
         result = calibrate(request, arguments.runs / request.id, arguments.timeout)
         results.append(result)
         mark = "ok  " if result["calibrated"] else "FAIL"
@@ -142,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"       {finding}")
 
     record = {
-        "schema_version": 1,
+        "schema_version": 2,
         "calibrated_on": time.strftime("%Y-%m-%d"),
         "commit": locks.target()["target"]["commit"],
         "rule": (
@@ -153,10 +180,11 @@ def main(argv: list[str] | None = None) -> int:
     }
     arguments.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
     calibrated = sum(1 for result in results if result["calibrated"])
-    print(
-        f"\n{calibrated}/{len(results)} calibrated; recorded in "
-        f"{arguments.output.relative_to(locks.REPO_ROOT)}"
+    output = arguments.output.resolve()
+    shown = (
+        output.relative_to(locks.REPO_ROOT) if output.is_relative_to(locks.REPO_ROOT) else output
     )
+    print(f"\n{calibrated}/{len(results)} calibrated; recorded in {shown}")
     return 0 if calibrated == len(results) else 1
 
 

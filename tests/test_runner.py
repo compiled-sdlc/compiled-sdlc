@@ -1,5 +1,6 @@
 """Tests for the run matrix: its shape, its resumability, and how it handles failure."""
 
+import itertools
 from pathlib import Path
 
 import pytest
@@ -97,7 +98,7 @@ def test_repeated_aborts_stop_the_matrix_with_the_rest_still_pending(tmp_path, r
 
 def test_an_isolated_abort_does_not_stop_the_matrix(tmp_path, requests):
     cells = runner.matrix(requests, ["baseline"], seeds=1)
-    statuses = iter(["aborted", "completed", "aborted", "completed", "completed"])
+    statuses = itertools.cycle(["aborted", "completed", "aborted", "completed", "completed"])
 
     def mixed_cell(cell, runs_directory, **options):
         status = next(statuses)
@@ -177,7 +178,8 @@ def test_planning_lists_the_pending_cells_without_running_anything(tmp_path, cap
     )
     assert exit_code == 0
     out = capsys.readouterr().out
-    assert "5 cells, 5 pending" in out
+    expected = len(cr.load_all())
+    assert f"{expected} cells, {expected} pending" in out
     assert "CR-101__baseline__seed1" in out
     assert not list(Path(tmp_path).glob("*/record.json"))
 

@@ -1,0 +1,79 @@
+id: CR-106
+title: A request for an owner who does not exist is answered 404
+category: bug_fix
+modules: [customers]
+risk_class: standard
+needs_stack: false
+difficulty: misleading_obvious_fix
+difficulty_rationale: >-
+  The read returns an Optional, which serialises to an empty body with 200 when
+  the owner is absent. The obvious fix is to change what the method returns, and
+  the obvious change --- wrapping the result --- alters the success response as
+  well, so a caller that reads the owner's fields now finds them one level
+  deeper. An agent that only checks the 404 case will pass its own test and
+  break every existing consumer. The invariant on the list operation closes the
+  other easy path, which is to route the read through the list.
+
+statement: |
+  Asking the customers service for an owner that does not exist is answered 200
+  with an empty body. Callers cannot tell an absent owner from a present one
+  they failed to parse, and the operation is the only read in the module that
+  behaves this way.
+
+  Answer 404 Not Found instead.
+
+behaviours:
+  - id: absent-owner-not-found
+    statement: A request for an owner identifier that does not exist is answered 404 Not Found.
+  - id: present-owner-unchanged
+    statement: A request for an owner that does exist is answered 200 with the owner's fields at the top level of the body, exactly as it is today.
+  - id: list-unchanged
+    statement: Listing owners is unaffected and still answers 200 with an array.
+
+boundaries:
+  - id: response-shape-unchanged
+    category: compatibility
+    obligation: must
+    statement: The body of a successful read keeps the shape it has today; nothing is wrapped, renamed or nested.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: customers-service-only
+    category: architecture
+    obligation: must
+    statement: The fix belongs in the customers service.
+
+context: |
+  The read is the single-owner operation in the customers service. The pet read
+  in the same module already answers 404 for an absent pet, by way of the
+  module's own not-found exception.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:list-operation-intact
+    kind: text_present
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/web/OwnerResource.java
+    pattern: "public List<Owner> findAll\\(\\)"
+    statement: The list operation keeps its signature; the read is not made to route through it.
+  - id: invariant:customers-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-visits-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The fix belongs in the customers service.
+
+acceptance:
+  - id: check:customers.owner-read.absent-is-not-found
+    module: customers
+    source: bench/checks/CR-106/OwnerReadNotFoundAcceptanceTest.java
+    destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/OwnerReadNotFoundAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.customers.web.OwnerReadNotFoundAcceptanceTest
+    statement: An absent owner is 404, a present one is 200 with its fields at the top level, and the list still answers an array.

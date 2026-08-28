@@ -6,7 +6,7 @@
   "description": "One unit of work put to an agent, against the pinned target application. The statement is what an arm renders for the agent; the invariants and the acceptance checks are ground truth the agent never sees, applied by the harness after the run.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "title", "category", "module", "risk_class", "statement", "behaviours", "must_invariants", "acceptance"],
+  "required": ["id", "title", "category", "modules", "risk_class", "difficulty", "difficulty_rationale", "statement", "behaviours", "must_invariants", "acceptance"],
   "properties": {
     "id": {"type": "string", "pattern": "^CR-[0-9]{3,}$"},
     "title": {"type": "string", "minLength": 1},
@@ -14,7 +14,21 @@
       "description": "The four kinds of work the change-request set covers.",
       "enum": ["feature", "bug_fix", "non_functional", "incident"]
     },
-    "module": {"type": "string", "minLength": 1},
+    "modules": {
+      "description": "The modules of the target application the change may touch, first the one it principally belongs to. A cross-service change names more than one; the harness runs each module's suite and places each hidden check in the module that declares it.",
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "difficulty": {
+      "description": "What makes this change request hard, from the taxonomy the pilot's ceiling effect made necessary. `single_endpoint` is the easy shape the pilot used and is kept only where a category needs a floor.",
+      "enum": ["single_endpoint", "cross_service", "misleading_obvious_fix", "invariant_tripping_nfr", "live_stack_incident", "refactor_under_constraint"]
+    },
+    "difficulty_rationale": {
+      "description": "Why this change request is expected to separate the arms: what the easy path is, and what it costs the agent that takes it.",
+      "type": "string",
+      "minLength": 1
+    },
     "risk_class": {"enum": ["low", "standard", "elevated", "critical"]},
     "needs_stack": {
       "description": "Whether verifying this change request needs the application running. Module tests do not; anything that exercises a service over the wire does. Defaults to false.",
@@ -70,8 +84,47 @@
       "type": "array",
       "minItems": 1,
       "items": {"$ref": "#/$defs/acceptanceCheck"}
+    },
+    "evidence": {
+      "description": "Runtime evidence captured from the pinned application, carried into the change request as input. Every arm renders it and the agent reads it; nothing in it names a hidden check or an invariant. Captured by infra/capture_evidence.py against the running pin, never written by hand, so it cannot drift from what the application actually does. Required for an incident, whose whole premise is something that was observed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["captured_on", "summary", "artifacts"],
+      "properties": {
+        "captured_on": {"type": "string", "format": "date"},
+        "summary": {
+          "description": "What the evidence shows, in one or two sentences.",
+          "type": "string",
+          "minLength": 1
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "path", "caption"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^evidence:[a-z0-9][a-z0-9.-]*$"},
+              "kind": {"enum": ["http_transcript", "service_log"]},
+              "path": {
+                "description": "The artifact's home, relative to the repository root. Tracked openly and placed in the agent's workspace.",
+                "type": "string",
+                "pattern": "^bench/evidence/"
+              },
+              "caption": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
     }
   },
+  "allOf": [
+    {
+      "if": {"properties": {"category": {"const": "incident"}}, "required": ["category"]},
+      "then": {"required": ["evidence"]}
+    }
+  ],
   "$defs": {
     "invariant": {
       "type": "object",
@@ -116,9 +169,14 @@
     "acceptanceCheck": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "source", "destination", "test_class"],
+      "required": ["id", "module", "source", "destination", "test_class"],
       "properties": {
         "id": {"type": "string", "pattern": "^check:[a-z0-9][a-z0-9._-]*$"},
+        "module": {
+          "description": "The module this check is placed in and run from. Must be one the change request names.",
+          "type": "string",
+          "minLength": 1
+        },
         "source": {
           "description": "The test's home, relative to the repository root. Tracked openly here; hidden from the agent.",
           "type": "string",

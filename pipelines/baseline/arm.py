@@ -20,15 +20,44 @@ The change request, {identifier} — {title}:
 What the change has to do:
 
 {behaviours}
-{boundaries}"""
+{boundaries}{evidence}"""
+
+OBSERVED = """
+What was observed, on {captured_on}:
+
+{summary}
+
+The files are in the workspace:
+
+{files}
+"""
 
 
 class Arm(BaseArm):
     name = "baseline"
+    templates = (REQUIREMENT, OBSERVED)
     editing = (
         "Edit the source however you see fit. Read the build and test output for "
         "feedback on what you have done."
     )
+
+    def prepare(self, request: ChangeRequest, workspace: Path) -> dict:
+        return {"artifacts": self.place_evidence(request, workspace)}
+
+    def observed(self, request: ChangeRequest, workspace: Path) -> str:
+        """The runtime evidence as prose, the way a ticket would carry it."""
+        brief = request.brief()
+        if not brief["evidence"]:
+            return ""
+        files = "\n".join(
+            f"- {relative} — {artifact.caption}"
+            for relative, artifact in self.evidence_entries(request, workspace)
+        )
+        return OBSERVED.format(
+            captured_on=brief["evidence"]["captured_on"],
+            summary=brief["evidence"]["summary"],
+            files=files,
+        )
 
     def presentation(self, request: ChangeRequest, workspace: Path) -> str:
         """Prose in the prompt: the requirement as natural-language text."""
@@ -47,4 +76,5 @@ class Arm(BaseArm):
             statement=statement,
             behaviours=behaviours,
             boundaries=boundaries,
+            evidence=self.observed(request, workspace),
         )

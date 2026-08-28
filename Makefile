@@ -22,6 +22,7 @@ help:
 	@echo "bench-status  report whether the local checkout matches the pin"
 	@echo "bench-validate check the change-request set against its schema and the pin"
 	@echo "calibrate     check every hidden check is red on the pristine pin"
+	@echo "evidence      capture the incident evidence from the running application"
 	@echo "bench         run the change-request set across the arms"
 	@echo "bench-plan    list the cells a run would cover, and which are pending"
 	@echo "smoke         prove the executor plumbing with one trivial run"
@@ -63,6 +64,9 @@ bench-validate:
 
 calibrate:
 	$(UV) run python infra/calibrate.py $(CALIBRATE_FLAGS)
+
+evidence:
+	$(UV) run python infra/capture_evidence.py $(EVIDENCE_FLAGS)
 
 bench-setup:
 	$(UV) run python infra/bench_setup.py $(BENCH_SETUP_FLAGS)

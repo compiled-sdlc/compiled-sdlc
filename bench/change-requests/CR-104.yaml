@@ -1,9 +1,12 @@
 id: CR-104
 title: Make the visit creation log line identify the visit, without its description
 category: non_functional
-module: visits
+modules: [visits]
 risk_class: elevated
 needs_stack: false
+difficulty: invariant_tripping_nfr
+difficulty_rationale: >-
+  The obvious fix is to give the record a readable rendering, which is exactly what the file-unchanged invariant forbids: doing so would put the free-text description one call away from every log statement that touches it. The agent has to see that the fix belongs in the operation, not the record.
 
 statement: |
   Creating a visit logs the visit object itself, which renders as the type name
@@ -80,6 +83,7 @@ must_invariants:
 
 acceptance:
   - id: check:visits.create.log-line-identifies-the-visit
+    module: visits
     source: bench/checks/CR-104/VisitLoggingAcceptanceTest.java
     destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/VisitLoggingAcceptanceTest.java
     test_class: org.springframework.samples.petclinic.visits.web.VisitLoggingAcceptanceTest

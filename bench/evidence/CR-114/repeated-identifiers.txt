@@ -1,0 +1,17 @@
+Observed against the pinned stack, visits service on 8082.
+
+The same pet named once, named five hundred times, and named in a
+mixed list. The answers carry the same visits; the work of asking
+for them does not.
+
+$ GET http://localhost:8082/pets/visits?petId=7
+  -> 200 in 4.3 ms  (request line 54 bytes)
+  {"items":[{"date":"2013-01-01","description":"rabies shot","id":1,"petId":7},{"date":"2013-01-04","description":"spayed","id":4,"petId":7}]}
+
+$ GET http://localhost:8082/pets/visits?petId=7,7,7,7,7,7,7,7,... [500 identifiers in all]
+  -> 200 in 11.5 ms  (request line 1052 bytes)
+  {"items":[{"date":"2013-01-01","description":"rabies shot","id":1,"petId":7},{"date":"2013-01-04","description":"spayed","id":4,"petId":7}]}
+
+$ GET http://localhost:8082/pets/visits?petId=7,7,8,8,7
+  -> 200 in 5.1 ms  (request line 62 bytes)
+  {"items":[{"date":"2013-01-01","description":"rabies shot","id":1,"petId":7},{"date":"2013-01-04","description":"spayed","id":4,"petId":7},{"date":"2013-01-02","description":"rabies shot","id":2,"petId":8},{"date":"2013-01-03","description":"neutered","id":3,"petId":8}]}

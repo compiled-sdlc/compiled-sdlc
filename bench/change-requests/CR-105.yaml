@@ -1,9 +1,12 @@
 id: CR-105
 title: Bound the batch visit lookup
 category: incident
-module: visits
+modules: [visits]
 risk_class: elevated
 needs_stack: false
+difficulty: single_endpoint
+difficulty_rationale: >-
+  A bound on a request parameter. Retained as the incident-category floor; the incident framing is real but the change is small.
 
 statement: |
   During an incident, a caller asked the visits service for the visits of
@@ -70,8 +73,25 @@ must_invariants:
       - spring-petclinic-api-gateway
     statement: The change belongs in the visits service.
 
+evidence:
+  captured_on: "2026-08-28"
+  summary: >-
+    Captured from the pinned stack. A lookup naming ten pets and a lookup naming
+    a thousand are both accepted; nothing refuses or bounds the larger one, and
+    the request line it needs runs to nearly four kilobytes.
+  artifacts:
+    - id: evidence:batch-lookup
+      kind: http_transcript
+      path: bench/evidence/CR-105/batch-lookup.txt
+      caption: Two lookups against the visits service, one modest and one of a thousand pets.
+    - id: evidence:visits-log
+      kind: service_log
+      path: bench/evidence/CR-105/visits-service.log
+      caption: What the visits service logged while answering them.
+
 acceptance:
   - id: check:visits.batch-lookup.bounded
+    module: visits
     source: bench/checks/CR-105/BatchVisitLookupAcceptanceTest.java
     destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/BatchVisitLookupAcceptanceTest.java
     test_class: org.springframework.samples.petclinic.visits.web.BatchVisitLookupAcceptanceTest

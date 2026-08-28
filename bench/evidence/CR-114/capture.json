@@ -1,0 +1,24 @@
+{
+  "artifacts": [
+    "bench/evidence/CR-114/repeated-identifiers.txt",
+    "bench/evidence/CR-114/visits-service.log"
+  ],
+  "captured_on": "2026-08-28",
+  "change_request": "CR-114",
+  "java_version": "java version \"21.0.7\" 2025-04-15 LTS",
+  "note": "A repeated identifier is carried into the lookup rather than collapsed before it.",
+  "pin_commit": "3858f9c630cf989bb6809a86edf47c2be78dc9f1",
+  "reproduced_by": [
+    "GET /pets/visits?petId=7 against the visits service",
+    "GET /pets/visits?petId=<the identifier 7, five hundred times>",
+    "GET /pets/visits?petId=7,7,8,8,7"
+  ],
+  "services": [
+    "config-server",
+    "discovery-server",
+    "customers-service",
+    "vets-service",
+    "visits-service",
+    "api-gateway"
+  ]
+}

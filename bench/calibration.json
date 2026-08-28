@@ -7,17 +7,23 @@
           "check:customers.pet-update.path-decides"
         ],
         "compiled": true,
-        "reports": {
-          "errors": 0,
-          "failures": 1,
-          "skipped": 0,
-          "tests": 5
+        "per_module": {
+          "spring-petclinic-customers-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 5
+            },
+            "status": "fail"
+          }
         },
         "status": "fail"
       },
       "calibrated": true,
       "change_request": "CR-101",
-      "duration_seconds": 15.0,
+      "duration_seconds": 21.8,
       "findings": [],
       "invariants": [
         {
@@ -41,8 +47,13 @@
           "status": "pass"
         }
       ],
-      "module": "spring-petclinic-customers-service",
       "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-customers-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-customers-service"
+      ],
       "needs_stack": false
     },
     {
@@ -51,17 +62,23 @@
           "check:customers.pet-create.rejects-invalid-body"
         ],
         "compiled": true,
-        "reports": {
-          "errors": 0,
-          "failures": 1,
-          "skipped": 0,
-          "tests": 4
+        "per_module": {
+          "spring-petclinic-customers-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 4
+            },
+            "status": "fail"
+          }
         },
         "status": "fail"
       },
       "calibrated": true,
       "change_request": "CR-102",
-      "duration_seconds": 14.9,
+      "duration_seconds": 16.4,
       "findings": [],
       "invariants": [
         {
@@ -85,8 +102,13 @@
           "status": "pass"
         }
       ],
-      "module": "spring-petclinic-customers-service",
       "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-customers-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-customers-service"
+      ],
       "needs_stack": false
     },
     {
@@ -95,17 +117,23 @@
           "check:customers.owner-pets.list"
         ],
         "compiled": true,
-        "reports": {
-          "errors": 0,
-          "failures": 3,
-          "skipped": 0,
-          "tests": 5
+        "per_module": {
+          "spring-petclinic-customers-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 3,
+              "skipped": 0,
+              "tests": 5
+            },
+            "status": "fail"
+          }
         },
         "status": "fail"
       },
       "calibrated": true,
       "change_request": "CR-103",
-      "duration_seconds": 14.9,
+      "duration_seconds": 15.9,
       "findings": [],
       "invariants": [
         {
@@ -134,8 +162,13 @@
           "status": "pass"
         }
       ],
-      "module": "spring-petclinic-customers-service",
       "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-customers-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-customers-service"
+      ],
       "needs_stack": false
     },
     {
@@ -144,17 +177,23 @@
           "check:visits.create.log-line-identifies-the-visit"
         ],
         "compiled": true,
-        "reports": {
-          "errors": 0,
-          "failures": 1,
-          "skipped": 0,
-          "tests": 2
+        "per_module": {
+          "spring-petclinic-visits-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 2
+            },
+            "status": "fail"
+          }
         },
         "status": "fail"
       },
       "calibrated": true,
       "change_request": "CR-104",
-      "duration_seconds": 14.6,
+      "duration_seconds": 15.3,
       "findings": [],
       "invariants": [
         {
@@ -183,8 +222,13 @@
           "status": "pass"
         }
       ],
-      "module": "spring-petclinic-visits-service",
       "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-visits-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-visits-service"
+      ],
       "needs_stack": false
     },
     {
@@ -193,17 +237,23 @@
           "check:visits.batch-lookup.bounded"
         ],
         "compiled": true,
-        "reports": {
-          "errors": 0,
-          "failures": 1,
-          "skipped": 0,
-          "tests": 4
+        "per_module": {
+          "spring-petclinic-visits-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 4
+            },
+            "status": "fail"
+          }
         },
         "status": "fail"
       },
       "calibrated": true,
       "change_request": "CR-105",
-      "duration_seconds": 14.7,
+      "duration_seconds": 14.4,
       "findings": [],
       "invariants": [
         {
@@ -232,12 +282,868 @@
           "status": "pass"
         }
       ],
-      "module": "spring-petclinic-visits-service",
       "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-visits-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-visits-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:customers.owner-read.absent-is-not-found"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-customers-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 5
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-106",
+      "duration_seconds": 15.1,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:list-operation-intact",
+          "kind": "text_present",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:customers-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-customers-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-customers-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:vets.read-one.by-identifier"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-vets-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 4
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-107",
+      "duration_seconds": 14.9,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:list-mapping-intact",
+          "kind": "text_present",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:vets-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-vets-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-vets-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:vets.list.ordered-and-counted"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-vets-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 3
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-108",
+      "duration_seconds": 14.5,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:vets-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-vets-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-vets-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:customers.owner-update.contact-details-not-logged"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-customers-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 3
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-109",
+      "duration_seconds": 14.4,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:record-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:still-logs-the-update",
+          "kind": "text_present",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:customers-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-customers-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-customers-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:customers.owners.bounded-list"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-customers-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 4,
+              "skipped": 0,
+              "tests": 7
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-110",
+      "duration_seconds": 14.8,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:customers-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-customers-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-customers-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:customers.pets.unknown-type-refused"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-customers-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 2,
+              "skipped": 0,
+              "tests": 6
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-111",
+      "duration_seconds": 14.6,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:customers-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-customers-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-customers-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:customers.owners.idempotent-create"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-customers-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 2,
+              "skipped": 0,
+              "tests": 7
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-112",
+      "duration_seconds": 14.4,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:customers-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-customers-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-customers-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:visits.create.not-in-the-future"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-visits-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 5
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-113",
+      "duration_seconds": 14.5,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:visits-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-visits-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-visits-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:visits.batch.repeats-collapsed"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-visits-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 2,
+              "skipped": 0,
+              "tests": 5
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-114",
+      "duration_seconds": 14.3,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:visits-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-visits-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-visits-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:vets.list.conditional-get"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-vets-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 3,
+              "skipped": 0,
+              "tests": 6
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-115",
+      "duration_seconds": 14.9,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:vets-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-vets-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-vets-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:gateway.visits.batched"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-api-gateway": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 7
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-116",
+      "duration_seconds": 19.4,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:gateway-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-api-gateway": "pass"
+      },
+      "modules": [
+        "spring-petclinic-api-gateway"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:gateway.owner.degraded-marked"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-api-gateway": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 3,
+              "skipped": 0,
+              "tests": 7
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-117",
+      "duration_seconds": 19.3,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:answer-shape-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:gateway-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-api-gateway": "pass"
+      },
+      "modules": [
+        "spring-petclinic-api-gateway"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:gateway.owner.no-pets-no-call",
+          "check:visits.batch.empty-refused"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-api-gateway": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 1,
+              "skipped": 0,
+              "tests": 6
+            },
+            "status": "fail"
+          },
+          "spring-petclinic-visits-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 2,
+              "skipped": 0,
+              "tests": 5
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-118",
+      "duration_seconds": 31.6,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:visit-entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:the-two-services-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-api-gateway": "pass",
+        "spring-petclinic-visits-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-api-gateway",
+        "spring-petclinic-visits-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:visits.create.no-caller-identifier"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-visits-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 2,
+              "skipped": 0,
+              "tests": 4
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-119",
+      "duration_seconds": 16.0,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:visits-service-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-visits-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-visits-service"
+      ],
+      "needs_stack": false
+    },
+    {
+      "acceptance": {
+        "checks": [
+          "check:visits.summary.per-pet",
+          "check:gateway.owner.visit-summary"
+        ],
+        "compiled": true,
+        "per_module": {
+          "spring-petclinic-api-gateway": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 4,
+              "skipped": 0,
+              "tests": 8
+            },
+            "status": "fail"
+          },
+          "spring-petclinic-visits-service": {
+            "compiled": true,
+            "reports": {
+              "errors": 0,
+              "failures": 4,
+              "skipped": 0,
+              "tests": 6
+            },
+            "status": "fail"
+          }
+        },
+        "status": "fail"
+      },
+      "calibrated": true,
+      "change_request": "CR-120",
+      "duration_seconds": 32.8,
+      "findings": [],
+      "invariants": [
+        {
+          "id": "invariant:existing-tests-pass",
+          "kind": "module_tests_pass",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:no-new-dependency",
+          "kind": "no_new_dependency",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:visit-entity-unchanged",
+          "kind": "file_unchanged",
+          "status": "pass"
+        },
+        {
+          "id": "invariant:the-two-services-only",
+          "kind": "paths_untouched",
+          "status": "pass"
+        }
+      ],
+      "module_suite": "pass",
+      "module_suites": {
+        "spring-petclinic-api-gateway": "pass",
+        "spring-petclinic-visits-service": "pass"
+      },
+      "modules": [
+        "spring-petclinic-api-gateway",
+        "spring-petclinic-visits-service"
+      ],
       "needs_stack": false
     }
   ],
   "commit": "3858f9c630cf989bb6809a86edf47c2be78dc9f1",
   "rule": "every hidden acceptance check must fail on the unmodified pin and every must-invariant must pass, or the check cannot discriminate",
-  "schema_version": 1
+  "schema_version": 2
 }

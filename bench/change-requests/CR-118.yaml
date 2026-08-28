@@ -1,0 +1,91 @@
+id: CR-118
+title: Nobody asks about the visits of no pets
+category: bug_fix
+modules: [gateway, visits]
+risk_class: elevated
+needs_stack: false
+difficulty: cross_service
+difficulty_rationale: >-
+  The symptom is on one side of a service boundary and the cause is on both, so
+  a change made in either module alone is only half of it. The gateway half is
+  easy once seen and easy to miss, because the owner with no pets is the case
+  nobody writes a test for. The visits half looks as though the framework
+  already handles it --- a lookup with the parameter left out is refused before
+  the handler is reached --- which is exactly why the case that is not refused,
+  a parameter present but carrying nothing, goes on reaching the database.
+
+statement: |
+  An owner with no pets still costs a call to the visits service. The gateway
+  asks it about an empty list of pets, and the visits service takes that request
+  and goes to the database with it.
+
+  Stop it at both ends. The gateway does not ask the visits service anything
+  about an owner with no pets, and answers with the owner as it does now. The
+  visits service refuses a batch lookup that carries no pet to look up, with a
+  bad request, and does not query.
+
+behaviours:
+  - id: gateway-does-not-ask
+    statement: An owner with no pets is answered without the visits service being called at all.
+  - id: gateway-still-answers
+    statement: An owner with no pets is still answered 200 with the owner and an empty list of pets.
+  - id: gateway-unchanged-with-pets
+    statement: An owner with pets is assembled exactly as it is today.
+  - id: visits-refuses-an-empty-lookup
+    statement: A batch lookup whose pet identifiers are empty is answered 400 and queries nothing.
+  - id: visits-unchanged-otherwise
+    statement: A batch lookup naming pets behaves exactly as it does today.
+
+boundaries:
+  - id: both-ends
+    category: architecture
+    obligation: must
+    statement: >-
+      A caller that should not have asked and a service that should not have
+      answered are two defects, and fixing one leaves the other.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to either module.
+  - id: visit-entity-unchanged
+    category: architecture
+    obligation: must
+    statement: The visit entity is the persistence mapping and is not part of this.
+
+context: |
+  The gateway assembles an owner from the customers service and then asks the
+  visits service about that owner's pets, through a client in its application
+  layer. The batch lookup it calls is in the visits service's web layer.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests both modules already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to either module.
+  - id: invariant:visit-entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/model/Visit.java
+    statement: The visit entity is the persistence mapping and is not part of this change.
+  - id: invariant:the-two-services-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-vets-service
+    statement: The change belongs to the gateway and the visits service.
+
+acceptance:
+  - id: check:gateway.owner.no-pets-no-call
+    module: gateway
+    source: bench/checks/CR-118/NoPetsNoLookupAcceptanceTest.java
+    destination: spring-petclinic-api-gateway/src/test/java/org/springframework/samples/petclinic/api/boundary/web/NoPetsNoLookupAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.api.boundary.web.NoPetsNoLookupAcceptanceTest
+    statement: An owner with no pets is answered without the visits service being called, and an owner with pets is unchanged.
+  - id: check:visits.batch.empty-refused
+    module: visits
+    source: bench/checks/CR-118/EmptyBatchLookupAcceptanceTest.java
+    destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/EmptyBatchLookupAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.visits.web.EmptyBatchLookupAcceptanceTest
+    statement: A lookup carrying no pet identifiers is refused without a query, and a lookup naming pets is unchanged.

@@ -1,0 +1,107 @@
+id: CR-117
+title: The gateway says when an owner's visits are incomplete
+category: incident
+modules: [gateway]
+risk_class: elevated
+needs_stack: false
+difficulty: misleading_obvious_fix
+difficulty_rationale: >-
+  Saying so is one field on the response object, and that is the first thing an
+  agent reaches for --- but the response object is the published shape of the
+  gateway's answer and is closed. Signalling it beside the body instead means
+  the handler can no longer just return the object: it has to carry a status out
+  of the fallback path and up through the reactive chain, and the easy version
+  of that sets the marker where the fallback is declared rather than where it
+  fires, so it reads true whether or not anything went wrong.
+
+statement: |
+  When the visits service cannot be reached, the gateway's circuit breaker
+  answers with no visits. A pet with no visits and a pet whose visits could not
+  be fetched look exactly alike, so a client cannot tell the difference and
+  neither could the on-call engineer during the last incident.
+
+  Say so beside the answer. Every response to a request for an owner carries an
+  X-Visits-Degraded header: true when the visits could not be fetched and the
+  empty answer was substituted, false when the visits are the real ones. The
+  body itself does not change.
+
+behaviours:
+  - id: degraded-is-marked
+    statement: When the visits could not be fetched, the response carries X-Visits-Degraded true.
+  - id: healthy-is-marked
+    statement: When the visits were fetched, the response carries X-Visits-Degraded false.
+  - id: still-answered
+    statement: A request whose visits could not be fetched is still answered 200 with the owner and its pets.
+  - id: body-unchanged
+    statement: The response body is exactly what it is today in both cases.
+
+boundaries:
+  - id: response-shape
+    category: compatibility
+    obligation: must
+    statement: >-
+      The answer's shape is published and read by clients that will not be
+      changed with it. The marker goes beside the body, not in it.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: gateway-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the gateway.
+
+context: |
+  The gateway assembles an owner from the customers service and the visits
+  service. The call to the visits service is wrapped in a circuit breaker whose
+  fallback substitutes an empty set of visits.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass, including the ones covering both the healthy and the failing path.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:answer-shape-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-api-gateway/src/main/java/org/springframework/samples/petclinic/api/dto/OwnerDetails.java
+      - spring-petclinic-api-gateway/src/main/java/org/springframework/samples/petclinic/api/dto/PetDetails.java
+    statement: The published answer shape is not where the marker goes.
+  - id: invariant:gateway-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-visits-service
+    statement: The change belongs in the gateway.
+
+evidence:
+  captured_on: "2026-08-28"
+  summary: >-
+    Captured from the pinned stack. With everything up, owner 1's pet has a
+    visit. With the visits service stopped, the identical request is answered
+    200 with an empty list of visits --- the same answer, field for field, that
+    owner 2 gets when the visits really are empty.
+  artifacts:
+    - id: evidence:healthy
+      kind: http_transcript
+      path: bench/evidence/CR-117/healthy.txt
+      caption: Owner 1 and owner 2 through the gateway with the whole stack running.
+    - id: evidence:degraded
+      kind: http_transcript
+      path: bench/evidence/CR-117/visits-service-down.txt
+      caption: The same request for owner 1 with the visits service stopped.
+    - id: evidence:gateway-log
+      kind: service_log
+      path: bench/evidence/CR-117/api-gateway.log
+      caption: What the gateway logged while the visits service was gone.
+
+acceptance:
+  - id: check:gateway.owner.degraded-marked
+    module: gateway
+    source: bench/checks/CR-117/DegradedVisitsAcceptanceTest.java
+    destination: spring-petclinic-api-gateway/src/test/java/org/springframework/samples/petclinic/api/boundary/web/DegradedVisitsAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.api.boundary.web.DegradedVisitsAcceptanceTest
+    statement: The marker is true only when the fallback fired, false otherwise, and the body is unchanged either way.

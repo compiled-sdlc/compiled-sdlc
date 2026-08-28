@@ -1,0 +1,23 @@
+{
+  "artifacts": [
+    "bench/evidence/CR-105/batch-lookup.txt",
+    "bench/evidence/CR-105/visits-service.log"
+  ],
+  "captured_on": "2026-08-28",
+  "change_request": "CR-105",
+  "java_version": "java version \"21.0.7\" 2025-04-15 LTS",
+  "note": "Both lookups are accepted; the larger one is neither refused nor bounded.",
+  "pin_commit": "3858f9c630cf989bb6809a86edf47c2be78dc9f1",
+  "reproduced_by": [
+    "GET /pets/visits?petId=<ten identifiers> against the visits service",
+    "GET /pets/visits?petId=<one thousand identifiers> against the visits service"
+  ],
+  "services": [
+    "config-server",
+    "discovery-server",
+    "customers-service",
+    "vets-service",
+    "visits-service",
+    "api-gateway"
+  ]
+}

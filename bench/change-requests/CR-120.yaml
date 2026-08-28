@@ -1,0 +1,119 @@
+id: CR-120
+title: An owner's visit summary, assembled across the services
+category: feature
+modules: [gateway, visits]
+risk_class: standard
+needs_stack: false
+difficulty: cross_service
+difficulty_rationale: >-
+  Neither half is hard and the seam between them is. The visits service has to
+  answer for pets it has never heard of --- a pet with no visits is a zero, not
+  an omission --- and the ordering of what it returns is the caller's, not the
+  database's. The gateway has to compose two services it already talks to and
+  decide what to do when the second one is gone, which is the opposite decision
+  from the one the owner route makes: a summary that quietly reports zero visits
+  for every pet is worse than no summary. An agent that does one half well and
+  reads the other half as an afterthought fails on the seam.
+
+statement: |
+  A client that wants to know how much attention an owner's pets have had must
+  fetch every visit of every pet and count them itself. There is nowhere to ask
+  the question directly, and the answer is assembled from two services.
+
+  Give the visits service a summary lookup: for a batch of pets, how many visits
+  each has had and the date of its most recent one. Then give the gateway a
+  route that answers the same question for an owner, by asking the customers
+  service which pets are theirs and the visits service to summarise them.
+
+  The visits service answers GET /pets/visits/summary?petId=7,9,8 with
+
+      {"summaries":[
+        {"petId":7,"visitCount":2,"lastVisitDate":"2013-01-04"},
+        {"petId":9,"visitCount":0,"lastVisitDate":null},
+        {"petId":8,"visitCount":1,"lastVisitDate":"2013-01-02"}]}
+
+  and the gateway answers GET /api/gateway/owners/1/visit-summary with
+
+      {"ownerId":1,"pets":[
+        {"petId":7,"name":"Leo","visitCount":2,"lastVisitDate":"2013-01-04"}]}
+
+  Dates are written as yyyy-MM-dd, as the rest of the visits interface writes
+  them, and a pet with no visits carries a null last date.
+
+behaviours:
+  - id: summary-per-pet-asked-for
+    statement: The visits service answers with one summary for every pet asked about, in the order they were asked for.
+  - id: unknown-pet-is-a-zero
+    statement: A pet the visits service has no visits for is summarised as a count of zero and no last date, not left out.
+  - id: count-and-last-date
+    statement: Each summary carries the number of visits that pet has had and the date of the most recent one.
+  - id: gateway-answers-for-an-owner
+    statement: The gateway answers a summary for an owner, naming the owner and carrying one entry per pet with the pet's name.
+  - id: owner-with-no-pets
+    statement: An owner with no pets is answered with an empty list of entries.
+  - id: gateway-says-when-it-cannot-answer
+    statement: If the visits service cannot be reached, the gateway refuses the summary with 503 rather than reporting zero visits for every pet.
+  - id: existing-routes-unchanged
+    statement: Everything both services already answer is answered exactly as it is today.
+
+boundaries:
+  - id: one-lookup-not-many
+    category: performance
+    obligation: must
+    statement: >-
+      The summary is derived from the visits the repository returns for the pets
+      asked about, in one read. A count query per pet turns one lookup into as
+      many lookups as there are pets.
+  - id: zero-is-not-silence
+    category: compatibility
+    obligation: must
+    statement: >-
+      A caller matches the answer against what it asked for. A pet dropped from
+      the answer because it had nothing is a pet the caller cannot account for.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to either module.
+  - id: visit-entity-unchanged
+    category: architecture
+    obligation: must
+    statement: The visit entity is the persistence mapping and is not where a summary is shaped.
+
+context: |
+  The visits service's web layer already answers a batch lookup of visits for a
+  list of pets, over a Spring Data repository. The gateway already asks the
+  customers service for an owner and the visits service for that owner's pets'
+  visits, through clients in its application layer.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests both modules already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to either module.
+  - id: invariant:visit-entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/model/Visit.java
+    statement: The visit entity is the persistence mapping and is not where a summary is shaped.
+  - id: invariant:the-two-services-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-vets-service
+    statement: The change belongs to the gateway and the visits service; the customers service is only consulted.
+
+acceptance:
+  - id: check:visits.summary.per-pet
+    module: visits
+    source: bench/checks/CR-120/VisitSummaryAcceptanceTest.java
+    destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/VisitSummaryAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.visits.web.VisitSummaryAcceptanceTest
+    statement: One summary per pet asked about, in order, with zeros for pets that have nothing, from a single read.
+  - id: check:gateway.owner.visit-summary
+    module: gateway
+    source: bench/checks/CR-120/OwnerVisitSummaryAcceptanceTest.java
+    destination: spring-petclinic-api-gateway/src/test/java/org/springframework/samples/petclinic/api/application/OwnerVisitSummaryAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.api.application.OwnerVisitSummaryAcceptanceTest
+    statement: The gateway composes the two services for an owner, and refuses rather than under-reporting when the visits service is gone.

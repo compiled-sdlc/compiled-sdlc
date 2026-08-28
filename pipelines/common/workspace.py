@@ -68,7 +68,10 @@ def create(cell_directory: Path, checkout: Path | None = None, commit: str | Non
     commit = commit or locks.target()["target"]["commit"]
     if not (checkout / ".git").exists():
         raise WorkspaceError(f"no target checkout at {checkout}; run make bench-setup first")
-    workspace = cell_directory / WORKSPACE_NAME
+    # Resolved, because the worktree is created with the checkout as the working
+    # directory: a relative path would land inside the application, not beside
+    # the run that owns it.
+    workspace = (cell_directory / WORKSPACE_NAME).resolve()
     if workspace.exists():
         remove(workspace, checkout)
     workspace.parent.mkdir(parents=True, exist_ok=True)

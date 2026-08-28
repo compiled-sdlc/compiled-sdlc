@@ -68,6 +68,10 @@ def allowances(path: Path | None = None) -> dict[str, Allowance]:
     return {arm: Allowance(arm=arm, **entry) for arm, entry in sorted(ledger["arms"].items())}
 
 
+#: Where evidence lands inside an arm's artifact directory.
+EVIDENCE_SUBDIR = "evidence"
+
+
 class BaseArm:
     """The shared half of an arm."""
 
@@ -81,7 +85,36 @@ class BaseArm:
 
     def prepare(self, request: ChangeRequest, workspace: Path) -> dict:
         """Place this arm's artifacts in the workspace. Returns what it placed."""
-        return {"artifacts": []}
+        return {"artifacts": self.place_evidence(request, workspace)}
+
+    def evidence_entries(self, request: ChangeRequest, workspace: Path) -> list[tuple[str, object]]:
+        """Where each evidence artifact goes, without writing anything.
+
+        Presentation and preparation both need the paths, and they are computed
+        the same way in both so an arm cannot describe a file it did not place.
+        """
+        if request.evidence is None:
+            return []
+        directory = self.artifact_directory(workspace) / EVIDENCE_SUBDIR
+        return [
+            (str((directory / artifact.path.name).relative_to(workspace)), artifact)
+            for artifact in request.evidence.artifacts
+        ]
+
+    def place_evidence(self, request: ChangeRequest, workspace: Path) -> list[str]:
+        """Put what was observed of the running application into the workspace.
+
+        The bytes are the same for every arm --- this is the content, not the
+        representation. What differs between arms is how the presentation frames
+        it, which is the thing under test.
+        """
+        placed = []
+        for relative, artifact in self.evidence_entries(request, workspace):
+            destination = workspace / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(artifact.read())
+            placed.append(relative)
+        return placed
 
     def artifact_directory(self, workspace: Path) -> Path:
         directory = workspace / ARTIFACT_DIRECTORY
@@ -104,9 +137,20 @@ class BaseArm:
             editing=self.editing.strip(),
         )
 
+    #: The arm's own prompt-shaping templates, in a fixed order. Declared rather
+    #: than discovered, so an arm cannot grow a template the ledger does not see.
+    templates: tuple[str, ...] = ()
+
     def template_digest(self) -> str:
-        """A digest of everything about this arm that shapes a prompt."""
-        return digest(TASK_FRAMING + self.editing + type(self).presentation.__doc__ or "")
+        """A digest of everything about this arm that shapes a prompt.
+
+        The shared framing, the arm's editing instruction, its presentation
+        docstring, and the templates it renders. The templates were missing
+        before, which meant an edit to the text an agent actually reads did not
+        move the digest and so did not cost the arm an iteration.
+        """
+        parts = [TASK_FRAMING, self.editing, type(self).presentation.__doc__ or "", *self.templates]
+        return digest("\x00".join(parts))
 
     def finalise(
         self, request: ChangeRequest, workspace: Path, cell: Path, verification: dict

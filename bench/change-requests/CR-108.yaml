@@ -1,0 +1,79 @@
+id: CR-108
+title: Order the vets list and report each vet's specialty count
+category: non_functional
+modules: [vets]
+risk_class: standard
+needs_stack: false
+difficulty: refactor_under_constraint
+difficulty_rationale: >-
+  Both halves of this have an easy path through the entity: annotate it to sort,
+  add a field to expose the count. The file-unchanged invariant on the entity
+  closes both, so the change has to be made as a projection built in the
+  resource --- which then has to reproduce the entity's existing JSON exactly,
+  because the module's own test asserts it. An agent that builds the projection
+  and forgets a field passes its own new test and fails the old one.
+
+statement: |
+  The vets list comes back in whatever order the repository returns, and a
+  caller that wants to know how many specialties a vet has must count the array
+  itself.
+
+  Order the list by last name, then first name, and give each element a
+  specialtyCount field.
+
+behaviours:
+  - id: ordered-by-name
+    statement: The list is ordered by last name, and by first name where last names are equal.
+  - id: specialty-count-present
+    statement: Each element carries a specialtyCount field holding the number of specialties that vet has.
+  - id: existing-fields-unchanged
+    statement: Every field an element carries today is still there, with the same name and the same value.
+
+boundaries:
+  - id: entity-unchanged
+    category: architecture
+    obligation: must
+    statement: >-
+      The vet entity is a persistence mapping shared with the rest of the module
+      and is not the place for presentation concerns; build what the response
+      needs in the web layer.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: vets-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the vets service.
+
+context: |
+  The list operation is in the vets service's web layer. The entity it returns
+  is the persistence mapping.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass, including the one asserting the list's shape.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-vets-service/src/main/java/org/springframework/samples/petclinic/vets/model/Vet.java
+    statement: The entity is the persistence mapping and is not where the response is shaped.
+  - id: invariant:vets-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-visits-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the vets service.
+
+acceptance:
+  - id: check:vets.list.ordered-and-counted
+    module: vets
+    source: bench/checks/CR-108/VetListProjectionAcceptanceTest.java
+    destination: spring-petclinic-vets-service/src/test/java/org/springframework/samples/petclinic/vets/web/VetListProjectionAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.vets.web.VetListProjectionAcceptanceTest
+    statement: The list is ordered by name, each element carries specialtyCount, and the existing fields are untouched.

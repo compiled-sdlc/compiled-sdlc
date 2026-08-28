@@ -396,3 +396,18 @@ def test_insertions_count_only_the_application(cell):
     (cell / MODULE / "src" / "main" / "Resource.java").write_text("class Resource { }\nint x;\n")
     changes = workspace_module.changes(cell)
     assert changes.insertions < 10, "the arm's artifact is not a five-hundred-line change"
+
+
+def test_a_workspace_is_created_where_the_run_is_not_inside_the_application(
+    tmp_path, pinned_application, pinned_commit, monkeypatch
+):
+    """The worktree is made with the application as the working directory."""
+    monkeypatch.chdir(tmp_path)
+    workspace = workspace_module.create(
+        Path("relative-cell"), checkout=pinned_application, commit=pinned_commit
+    )
+    assert workspace.is_absolute()
+    assert workspace == (tmp_path / "relative-cell" / "workspace").resolve()
+    assert (workspace / MODULE / "pom.xml").exists()
+    assert not (pinned_application / "relative-cell").exists()
+    workspace_module.remove(workspace, checkout=pinned_application)

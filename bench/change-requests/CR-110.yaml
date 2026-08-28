@@ -1,0 +1,88 @@
+id: CR-110
+title: Bound the owner list
+category: non_functional
+modules: [customers]
+risk_class: elevated
+needs_stack: false
+difficulty: invariant_tripping_nfr
+difficulty_rationale: >-
+  The list hands back every owner the table holds. The obvious repair is to
+  return a page object, which is one line and changes the response from an array
+  into an envelope --- every existing caller reads the array. The entity is also
+  closed, so the sorting and slicing cannot be pushed down into the mapping. The
+  change that satisfies both is a bounded list that still looks exactly like the
+  unbounded one, with the size reported beside it rather than inside it.
+
+statement: |
+  The owner list answers with every owner in the table. On a small database that
+  is invisible; on a real one it is an unbounded response and an unbounded query.
+
+  Bound it. A caller may ask for a page and a page size; a caller that asks for
+  neither gets the first twenty. A page size beyond one hundred is refused. The
+  total number of owners is reported in an X-Total-Count response header.
+
+behaviours:
+  - id: default-page
+    statement: A request with no parameters answers with at most the first twenty owners.
+  - id: caller-chosen-size
+    statement: A caller may ask for a page and a page size, and gets that page at that size.
+  - id: size-ceiling
+    statement: A page size above one hundred is refused with 400 and no query is made.
+  - id: total-reported
+    statement: Every successful response carries an X-Total-Count header holding the total number of owners.
+  - id: shape-unchanged
+    statement: A successful response is still a JSON array of owners, each with the same fields it carries today.
+
+boundaries:
+  - id: response-shape
+    category: compatibility
+    obligation: must
+    statement: >-
+      Callers read the response as an array of owners. The bound must not turn it
+      into an envelope around one.
+  - id: entity-unchanged
+    category: architecture
+    obligation: must
+    statement: >-
+      The owner entity is the persistence mapping and is shared with the rest of
+      the module; paging is not a property of it.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: customers-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the customers service.
+
+context: |
+  The list operation is in the customers service's web layer, over a Spring Data
+  repository. The support for paging a repository is already on the classpath.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/model/Owner.java
+    statement: The owner entity is the persistence mapping and is not where the response is bounded.
+  - id: invariant:customers-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-vets-service
+      - spring-petclinic-visits-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the customers service.
+
+acceptance:
+  - id: check:customers.owners.bounded-list
+    module: customers
+    source: bench/checks/CR-110/OwnerListBoundAcceptanceTest.java
+    destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/OwnerListBoundAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.customers.web.OwnerListBoundAcceptanceTest
+    statement: The list is bounded by default and on request, refuses an oversized page, reports the total, and stays an array.

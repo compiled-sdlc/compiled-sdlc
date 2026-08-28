@@ -1,0 +1,87 @@
+id: CR-111
+title: A pet is never saved with a type that does not exist
+category: bug_fix
+modules: [customers]
+risk_class: standard
+needs_stack: false
+difficulty: misleading_obvious_fix
+difficulty_rationale: >-
+  The lookup of the type is written so that a miss does nothing, and the pet is
+  saved anyway with no type at all. The obvious repair is to make the miss throw
+  the exception the module already has for a thing that is not there --- which
+  answers 404, the wrong answer for a body the caller got wrong, and is the
+  answer this module already gives for an owner that does not exist. The other
+  half is quieter: the lookup sits in the private method that both creating and
+  updating a pet go through, so a repair made at the create endpoint leaves the
+  update endpoint saving typeless pets.
+
+statement: |
+  Creating a pet with a type identifier that does not exist succeeds. The type
+  is looked up, the lookup misses, and the pet is saved with no type. Updating a
+  pet does the same thing. The pet is then in the database in a state no caller
+  asked for and no caller can see was wrong.
+
+  A request that names a type that does not exist must be refused as a bad
+  request, and nothing must be saved. A request that names a type that does
+  exist must go on working exactly as it does now.
+
+behaviours:
+  - id: create-rejects-unknown-type
+    statement: Creating a pet with a type identifier that does not exist is answered 400 and saves nothing.
+  - id: update-rejects-unknown-type
+    statement: Updating a pet with a type identifier that does not exist is answered 400 and saves nothing.
+  - id: known-type-still-works
+    statement: Creating or updating a pet with a type that exists still succeeds and still sets the type.
+
+boundaries:
+  - id: bad-body-is-not-missing-resource
+    category: compatibility
+    obligation: must
+    statement: >-
+      A caller who sent a field the service cannot accept has made a bad request.
+      That is not the same answer as a resource that is not there, and callers
+      distinguish the two.
+  - id: entity-unchanged
+    category: architecture
+    obligation: must
+    statement: The pet entity is the persistence mapping; validation of a request is not part of it.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: customers-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the customers service.
+
+context: |
+  Creating and updating a pet are both in the customers service's web layer, and
+  both reach the persistence layer through the same private save step.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-customers-service/src/main/java/org/springframework/samples/petclinic/customers/model/Pet.java
+    statement: The pet entity is the persistence mapping and is not where a request is refused.
+  - id: invariant:customers-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-vets-service
+      - spring-petclinic-visits-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the customers service.
+
+acceptance:
+  - id: check:customers.pets.unknown-type-refused
+    module: customers
+    source: bench/checks/CR-111/PetTypeRefusedAcceptanceTest.java
+    destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/PetTypeRefusedAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.customers.web.PetTypeRefusedAcceptanceTest
+    statement: Both writing paths refuse an unknown type with 400 and save nothing, and a known type still works.

@@ -1,9 +1,12 @@
 id: CR-101
 title: Pet update applies to the pet named in the path
 category: bug_fix
-module: customers
+modules: [customers]
 risk_class: standard
 needs_stack: false
+difficulty: single_endpoint
+difficulty_rationale: >-
+  The path variable is simply not bound. The fix is one signature change and one comparison; the set keeps it as a floor for the bug-fix category rather than because it separates arms.
 
 statement: |
   Updating a pet ignores the pet identifier in the request path. The update
@@ -61,6 +64,7 @@ must_invariants:
 
 acceptance:
   - id: check:customers.pet-update.path-decides
+    module: customers
     source: bench/checks/CR-101/PetUpdatePathAcceptanceTest.java
     destination: spring-petclinic-customers-service/src/test/java/org/springframework/samples/petclinic/customers/web/PetUpdatePathAcceptanceTest.java
     test_class: org.springframework.samples.petclinic.customers.web.PetUpdatePathAcceptanceTest

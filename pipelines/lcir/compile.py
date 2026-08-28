@@ -39,9 +39,31 @@ def check_ref(request: ChangeRequest, behaviour_id: str) -> str:
     return f"check:{slug(request.id)}.{behaviour_id}"
 
 
-def intent_graph(request: ChangeRequest) -> dict:
+def observations(request: ChangeRequest, goal: str, evidence_paths: dict[str, str]) -> list[dict]:
+    """What was observed of the running system, as typed nodes on the goal.
+
+    The same evidence every other arm is given, addressed rather than narrated:
+    each observation names the artifact it stands on and the goal it motivates.
+    """
+    if request.evidence is None:
+        return []
+    return [
+        {
+            "id": artifact.id,
+            "kind": artifact.kind,
+            "caption": artifact.caption,
+            "artifact": evidence_paths.get(artifact.id, artifact.path.name),
+            "observed_on": request.evidence.captured_on,
+            "motivates": [goal],
+        }
+        for artifact in request.evidence.artifacts
+    ]
+
+
+def intent_graph(request: ChangeRequest, evidence_paths: dict[str, str] | None = None) -> dict:
     """Goals, actors, behaviours and the conditions that settle them."""
     goal = f"goal:{slug(request.id)}"
+    observed = observations(request, goal, evidence_paths or {})
     return {
         "kind": "intent_graph",
         "ir_version": IR_VERSION,
@@ -92,6 +114,7 @@ def intent_graph(request: ChangeRequest) -> dict:
             }
             for behaviour in request.behaviours
         ],
+        **({"observations": observed} if observed else {}),
     }
 
 
@@ -218,9 +241,11 @@ def evidence_graph(request: ChangeRequest, verification: dict) -> dict:
     }
 
 
-def documents(request: ChangeRequest) -> dict[str, dict]:
+def documents(
+    request: ChangeRequest, evidence_paths: dict[str, str] | None = None
+) -> dict[str, dict]:
     """The documents an arm places in a workspace before the run."""
     return {
-        "intent-graph.json": intent_graph(request),
+        "intent-graph.json": intent_graph(request, evidence_paths),
         "constraint-graph.json": constraint_graph(request),
     }

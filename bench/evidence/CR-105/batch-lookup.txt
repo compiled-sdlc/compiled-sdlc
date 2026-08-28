@@ -1,0 +1,13 @@
+Observed against the pinned stack, visits service on 8082.
+
+A lookup naming ten pets and a lookup naming a thousand are both
+accepted. Nothing refuses the second one, and the request line it
+needs is the size shown below.
+
+$ GET http://localhost:8082/pets/visits?petId=1,2,3,4,5,6,7,8,... [10 identifiers in all]
+  -> 200 in 5.2 ms  (request line 73 bytes)
+  {"items":[{"date":"2026-08-28","description":"annual check-up","id":5,"petId":1},{"date":"2013-01-01","description":"rabies shot","id":1,"petId":7},{"date":"2013-01-04","description":"spayed","id":4,"petId":7},{"date":"2013-01-02","description":"rabies shot","id":2,"petId":8},{"date":"2013-01-03","description":"neutered","id":3,"petId":8}]}
+
+$ GET http://localhost:8082/pets/visits?petId=1,2,3,4,5,6,7,8,... [1000 identifiers in all]
+  -> 200 in 31.8 ms  (request line 3945 bytes)
+  {"items":[{"date":"2026-08-28","description":"annual check-up","id":5,"petId":1},{"date":"2013-01-01","description":"rabies shot","id":1,"petId":7},{"date":"2013-01-04","description":"spayed","id":4,"petId":7},{"date":"2013-01-02","description":"rabies shot","id":2,"petId":8},{"date":"2013-01-03","description":"neutered","id":3,"petId":8}]}

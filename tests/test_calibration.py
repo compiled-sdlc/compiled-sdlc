@@ -47,6 +47,19 @@ def test_the_module_suite_is_green_before_the_change():
         assert entry["module_suite"] == "pass", entry["change_request"]
 
 
+def test_every_module_a_request_names_was_calibrated():
+    """A cross-service change is only calibrated if both sides were."""
+    from pipelines.common import locks as locks_module
+
+    by_id = {entry["change_request"]: entry for entry in RECORD["change_requests"]}
+    for request in cr.load_all():
+        entry = by_id[request.id]
+        assert entry["modules"] == list(request.module_paths), request.id
+        for module_path in request.module_paths:
+            assert entry["module_suites"][module_path] == "pass", f"{request.id} {module_path}"
+        assert locks_module.module_path(request.modules[0]) == entry["modules"][0]
+
+
 def test_the_record_covers_the_checks_the_change_requests_declare():
     by_id = {entry["change_request"]: entry for entry in RECORD["change_requests"]}
     for request in cr.load_all():
@@ -57,9 +70,20 @@ def test_the_record_covers_the_checks_the_change_requests_declare():
         }
 
 
-def test_no_pilot_change_request_needs_the_running_stack():
-    """Module tests must verify without one; a stack requirement has to be declared."""
-    for request in cr.load_all():
-        assert request.needs_stack is False
+def test_nothing_is_verified_against_a_stack_that_boots_the_pin():
+    """The stack runner starts the pinned checkout, not a run's workspace.
+
+    A change request that declared `needs_stack: true` today would be verified
+    against the unmodified application and credited with a success it did not
+    earn. Until infra/stack.py can boot a workspace --- see
+    bench/VERIFICATION.md --- nothing in the set may declare it, and what
+    calibration recorded must agree with what the request declares.
+    """
+    declared = {request.id: request.needs_stack for request in cr.load_all()}
+    assert not any(declared.values()), [k for k, v in declared.items() if v]
     for entry in RECORD["change_requests"]:
-        assert entry["needs_stack"] is False
+        assert entry["needs_stack"] == declared[entry["change_request"]]
+
+
+def test_the_record_is_the_shape_the_calibrator_writes_now():
+    assert RECORD["schema_version"] == 2

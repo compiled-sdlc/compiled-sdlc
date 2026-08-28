@@ -17,7 +17,12 @@
     "behaviors": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/behavior"}},
     "acceptance_conditions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/acceptanceCondition"}},
     "exclusions": {"type": "array", "items": {"$ref": "#/$defs/exclusion"}},
-    "open_questions": {"type": "array", "items": {"$ref": "#/$defs/openQuestion"}}
+    "open_questions": {"type": "array", "items": {"$ref": "#/$defs/openQuestion"}},
+    "observations": {
+      "description": "What was observed of the running system, for a change request that begins with an observation.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/observation"}
+    }
   },
   "$defs": {
     "actor": {
@@ -149,6 +154,23 @@
       },
       "if": {"properties": {"status": {"const": "resolved"}}, "required": ["status"]},
       "then": {"required": ["resolution"]}
+    },
+    "observation": {
+      "description": "Something observed of the running system that motivates a goal. An incident's intent begins with what was seen, not with an assertion that it happened; the artifact is placed in the workspace so the agent can read what was actually recorded.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "caption", "motivates"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^evidence:[a-z0-9][a-z0-9.-]*$"},
+        "kind": {"enum": ["http_transcript", "service_log"]},
+        "caption": {"type": "string", "minLength": 1},
+        "artifact": {
+          "description": "Where the recorded artifact sits in the workspace.",
+          "type": "string"
+        },
+        "observed_on": {"type": "string", "format": "date"},
+        "motivates": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      }
     }
   }
 }

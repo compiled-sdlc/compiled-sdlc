@@ -1,0 +1,91 @@
+id: CR-115
+title: The vets list answers a conditional request
+category: non_functional
+modules: [vets]
+risk_class: standard
+needs_stack: false
+difficulty: refactor_under_constraint
+difficulty_rationale: >-
+  The framework has a filter that gives any response an entity tag for free, and
+  reaching for it is the first thing most agents do; the request closes that
+  door on the stated ground that it buffers every response to hash it. What is
+  left is to derive the tag in the web layer from the list itself, and the easy
+  version of that --- a constant, or a tag from the request rather than the data
+  --- answers 304 to a caller holding a stale copy. The check therefore asks
+  what happens when the data changes underneath the same caller.
+
+statement: |
+  The vets list changes very rarely and is fetched constantly. Every fetch sends
+  the whole list back, whether or not the caller already has it.
+
+  Give the list an entity tag. A caller that sends back a tag matching the list
+  as it now stands is answered 304 with no body. A caller that sends back a tag
+  that does not match, or none at all, is answered 200 with the list exactly as
+  it is answered today. The tag must follow the list: two fetches of an unchanged
+  list carry the same tag, and a fetch after the list changes carries a different
+  one.
+
+behaviours:
+  - id: tag-present
+    statement: A successful fetch of the list carries an entity tag.
+  - id: matching-tag-is-not-modified
+    statement: A fetch whose If-None-Match matches the list as it now stands is answered 304 with no body.
+  - id: unmatched-tag-is-the-full-list
+    statement: A fetch whose If-None-Match does not match, or which sends none, is answered 200 with the whole list.
+  - id: tag-follows-the-data
+    statement: The tag is the same for an unchanged list and different once the list has changed.
+  - id: body-unchanged
+    statement: The 200 response body is exactly what it is today, field for field.
+
+boundaries:
+  - id: not-a-buffering-filter
+    category: performance
+    obligation: must
+    statement: >-
+      A servlet filter that tags responses does it by buffering each one in
+      memory to hash it, which is a cost paid on every response in the service.
+      The tag for this list is to be produced where the list is.
+  - id: entity-unchanged
+    category: architecture
+    obligation: must
+    statement: The vet entity is the persistence mapping and is not where a response is tagged.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: vets-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the vets service.
+
+context: |
+  The list operation is in the vets service's web layer, over a Spring Data
+  repository.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass, including the one asserting the list's shape.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-vets-service/src/main/java/org/springframework/samples/petclinic/vets/model/Vet.java
+    statement: The vet entity is the persistence mapping and is not where a response is tagged.
+  - id: invariant:vets-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-visits-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the vets service.
+
+acceptance:
+  - id: check:vets.list.conditional-get
+    module: vets
+    source: bench/checks/CR-115/VetListConditionalGetAcceptanceTest.java
+    destination: spring-petclinic-vets-service/src/test/java/org/springframework/samples/petclinic/vets/web/VetListConditionalGetAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.vets.web.VetListConditionalGetAcceptanceTest
+    statement: The list carries a tag that follows the data, answers 304 to a matching tag, and is otherwise unchanged.

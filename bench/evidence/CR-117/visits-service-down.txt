@@ -1,0 +1,10 @@
+Observed against the pinned stack with the visits service stopped.
+
+The same request for owner 1, whose pet does have a visit. The answer
+is 200 and the visits are empty --- the same answer, field for field,
+that owner 2 gets when the visits really are empty. Nothing in the
+response says which of the two happened.
+
+$ GET http://localhost:8080/api/gateway/owners/1
+  -> 200 in 22.0 ms  (request line 55 bytes)
+  {"id":1,"firstName":"George","lastName":"Franklin","address":"110 W. Liberty St.","city":"Madison","telephone":"6085551023","pets":[{"id":1,"name":"Leo","birthDate":"2010-09-07T04:00:00.000Z","type":{"name":"cat"},"visits":[]}]}

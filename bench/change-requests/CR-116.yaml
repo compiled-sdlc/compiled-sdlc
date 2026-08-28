@@ -1,0 +1,76 @@
+id: CR-116
+title: The gateway asks the visits service for at most a hundred pets at a time
+category: non_functional
+modules: [gateway]
+risk_class: elevated
+needs_stack: false
+difficulty: invariant_tripping_nfr
+difficulty_rationale: >-
+  The client builds one query string from every pet identifier it was given, so
+  the fix is to cut the list up --- and the cutting is the easy part. What
+  catches an agent is the two ends of it. The pieces have to be put back
+  together into one answer, and an implementation that returns the first piece,
+  or loses the ones that arrive late, still looks right against a single pet.
+  And the module's own tests pin the behaviour for a small list to exactly one
+  request, so an implementation that always issues a fixed number of calls, or
+  that pads the last piece, breaks tests that were already there.
+
+statement: |
+  The gateway asks the visits service about an owner's pets by putting every pet
+  identifier into one query string. An owner with many pets produces a request
+  line long enough to be refused by an intermediary, and a single database query
+  proportional to the whole herd.
+
+  Ask for at most one hundred pets in any one request. Put the answers back
+  together so the caller sees exactly the visits it would have seen before: every
+  visit the service holds for those pets, each once. Asking about a hundred pets
+  or fewer must still be exactly one request, as it is today.
+
+behaviours:
+  - id: no-request-over-the-limit
+    statement: No request to the visits service names more than one hundred pets.
+  - id: every-pet-asked-once
+    statement: Across the requests made, every pet asked about is asked about exactly once.
+  - id: answers-merged
+    statement: The answer carries every visit the service returned across all the requests.
+  - id: small-list-unchanged
+    statement: A list of one hundred pets or fewer is still one request, exactly as it is today.
+
+boundaries:
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: gateway-only
+    category: architecture
+    obligation: must
+    statement: >-
+      The visits service's endpoint is not being changed; this is about what the
+      gateway asks of it.
+
+context: |
+  The gateway reaches the visits service through a client in its application
+  layer, which joins the pet identifiers into one query parameter.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass, including the one pinning a single-pet lookup to one request.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:gateway-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-visits-service
+    statement: The change belongs in the gateway.
+
+acceptance:
+  - id: check:gateway.visits.batched
+    module: gateway
+    source: bench/checks/CR-116/VisitsBatchingAcceptanceTest.java
+    destination: spring-petclinic-api-gateway/src/test/java/org/springframework/samples/petclinic/api/application/VisitsBatchingAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.api.application.VisitsBatchingAcceptanceTest
+    statement: A large lookup is split at one hundred, covers every pet once, merges every answer, and a small one is still a single request.

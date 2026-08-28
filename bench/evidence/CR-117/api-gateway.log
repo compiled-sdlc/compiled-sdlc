@@ -1,0 +1,12 @@
+Gateway log lines naming the visits service while it was stopped.
+
+2026-08-28T18:48:11.256-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: visits-service
+2026-08-28T18:48:11.256-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service visits-service
+2026-08-28T18:48:11.282-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: visits-service
+2026-08-28T18:48:11.282-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service visits-service
+2026-08-28T18:48:11.292-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: visits-service
+2026-08-28T18:48:11.293-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service visits-service
+2026-08-28T18:48:17.908-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: visits-service
+2026-08-28T18:48:17.909-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service visits-service
+2026-08-28T18:48:24.190-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: visits-service
+2026-08-28T18:48:24.190-04:00  WARN 23342 --- [api-gateway] [ctor-http-nio-4] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service visits-service

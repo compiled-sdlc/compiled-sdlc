@@ -32,8 +32,13 @@ bundle in {directory}:
 - constraint-graph.json — the boundaries the change is bounded by, each with an
   obligation and a severity, and the risk class of the change.
 - schemas/ — the schema each document conforms to.
-
+{observations}
 Read the bundle. It is the specification; there is no prose version of it.
+"""
+
+OBSERVATIONS = """\
+The intent graph carries observations: what was seen of the running system,
+each naming the recorded artifact it stands on, under {directory}/evidence/.
 """
 
 PLAN_INSTRUCTION = """\
@@ -50,16 +55,25 @@ implements, and the constraints it respects. Then apply the plan you wrote.
 
 class Arm(BaseArm):
     name = "lcir"
+    templates = (PRESENTATION, OBSERVATIONS, PLAN_INSTRUCTION)
     editing = (
         "Make each edit as the operation your transformation plan addresses, and keep "
         "the plan and the source in step. Read the build and test output for feedback."
     )
 
     def prepare(self, request: ChangeRequest, workspace: Path) -> dict:
-        """Write the typed bundle and the schemas it conforms to."""
+        """Write the typed bundle, the evidence it stands on, and the schemas."""
+        evidence = self.place_evidence(request, workspace)
+        addressed = {
+            artifact.id: relative
+            for relative, artifact in self.evidence_entries(request, workspace)
+        }
         placed = [
-            self.write(workspace, name, json.dumps(document, indent=2) + "\n")
-            for name, document in compiler.documents(request).items()
+            *evidence,
+            *(
+                self.write(workspace, name, json.dumps(document, indent=2) + "\n")
+                for name, document in compiler.documents(request, addressed).items()
+            ),
         ]
         schemas = self.artifact_directory(workspace) / "schemas"
         schemas.mkdir(parents=True, exist_ok=True)
@@ -74,10 +88,22 @@ class Arm(BaseArm):
         brief = request.brief()
         directory = self.artifact_directory(workspace).relative_to(workspace)
         return (
-            PRESENTATION.format(identifier=brief["id"], title=brief["title"], directory=directory)
+            PRESENTATION.format(
+                identifier=brief["id"],
+                title=brief["title"],
+                directory=directory,
+                observations=self.observations_note(request, workspace),
+            )
             + "\n"
             + PLAN_INSTRUCTION.format(directory=directory)
         )
+
+    def observations_note(self, request: ChangeRequest, workspace: Path) -> str:
+        """A line pointing at the observations, for a request that has any."""
+        if request.evidence is None:
+            return ""
+        directory = self.artifact_directory(workspace).relative_to(workspace)
+        return OBSERVATIONS.format(directory=directory)
 
     def finalise(
         self, request: ChangeRequest, workspace: Path, cell: Path, verification: dict

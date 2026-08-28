@@ -1,0 +1,26 @@
+{
+  "artifacts": [
+    "bench/evidence/CR-117/healthy.txt",
+    "bench/evidence/CR-117/visits-service-down.txt",
+    "bench/evidence/CR-117/api-gateway.log"
+  ],
+  "captured_on": "2026-08-28",
+  "change_request": "CR-117",
+  "java_version": "java version \"21.0.7\" 2025-04-15 LTS",
+  "note": "The degraded answer and the true empty answer are identical to a caller.",
+  "pin_commit": "3858f9c630cf989bb6809a86edf47c2be78dc9f1",
+  "reproduced_by": [
+    "GET /api/gateway/owners/1 and /owners/2 with the whole stack up",
+    "stop the visits service, leaving the rest of the stack running",
+    "GET /api/gateway/owners/1 again",
+    "start the visits service"
+  ],
+  "services": [
+    "config-server",
+    "discovery-server",
+    "customers-service",
+    "vets-service",
+    "visits-service",
+    "api-gateway"
+  ]
+}

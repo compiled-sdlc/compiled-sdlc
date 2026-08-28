@@ -1,0 +1,80 @@
+id: CR-113
+title: A visit cannot be recorded in the future
+category: bug_fix
+modules: [visits]
+risk_class: standard
+needs_stack: false
+difficulty: refactor_under_constraint
+difficulty_rationale: >-
+  The endpoint binds the persistence entity straight out of the request body and
+  validates it, so the one-line repair is an annotation on the entity's date
+  field. The entity is closed --- it is the mapping the whole module shares and
+  its builder is used by the module's own tests --- which leaves the check to be
+  made in the web layer, on a body that arrives as the entity itself. The other
+  half is that the same field defaults to now when the caller omits it, and a
+  check written without care refuses the default too.
+
+statement: |
+  A visit is a record of something that happened. The create endpoint accepts
+  any date, including one years in the future, and stores it.
+
+  Refuse a visit dated later than today with a bad request, and store nothing. A
+  visit dated today or earlier is stored as it is now, and a visit that carries
+  no date at all still gets today's, as it does now.
+
+behaviours:
+  - id: future-refused
+    statement: A create carrying a date later than today is answered 400 and stores nothing.
+  - id: today-and-earlier-accepted
+    statement: A create carrying today's date, or an earlier one, is stored as it is today.
+  - id: absent-date-still-defaults
+    statement: A create carrying no date still gets one, as it does today, and is stored.
+
+boundaries:
+  - id: entity-unchanged
+    category: architecture
+    obligation: must
+    statement: >-
+      The visit entity is the persistence mapping the module shares, and its
+      builder is used elsewhere; the rule about what a caller may send is not
+      part of it.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: visits-service-only
+    category: architecture
+    obligation: must
+    statement: The change belongs in the visits service.
+
+context: |
+  Creating a visit is in the visits service's web layer. The body is bound to
+  the entity and validated before the entity is saved.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:entity-unchanged
+    kind: file_unchanged
+    paths:
+      - spring-petclinic-visits-service/src/main/java/org/springframework/samples/petclinic/visits/model/Visit.java
+    statement: The visit entity is the persistence mapping and is not where a request is refused.
+  - id: invariant:visits-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-vets-service
+      - spring-petclinic-api-gateway
+    statement: The change belongs in the visits service.
+
+acceptance:
+  - id: check:visits.create.not-in-the-future
+    module: visits
+    source: bench/checks/CR-113/VisitDateAcceptanceTest.java
+    destination: spring-petclinic-visits-service/src/test/java/org/springframework/samples/petclinic/visits/web/VisitDateAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.visits.web.VisitDateAcceptanceTest
+    statement: A future date is refused and stores nothing; today, earlier, and an absent date are stored as before.

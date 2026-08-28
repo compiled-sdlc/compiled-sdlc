@@ -51,7 +51,7 @@ runs in `bench/executor.lock`, and the prices token counts are costed at in
 | `pipelines/lcir_no_ast/` | Arm C — ablation: typed intent and evidence, plain-text edits |
 | `pipelines/compressed/` | Arm D — aggressively minified artifacts |
 | `projections/` | Generators that render human-readable views from the IR |
-| `bench/` | Target-application pin, executor pin, change-request set, hidden acceptance tests |
+| `bench/` | Target-application pin, executor pin, change-request set, hidden acceptance tests, captured incident evidence |
 | `eval/` | Metrics and figure generation |
 | `infra/` | Repository hygiene audit and environment setup |
 | `tests/` | Test suite |
@@ -110,7 +110,11 @@ One run is one change request, put to one arm, at one seed.
 1. The run gets a fresh worktree of the target application at its pin. Nothing
    from this repository is placed in it.
 2. The arm renders the change request's statement — and only its statement —
-   into whatever artifacts that arm gives an agent.
+   into whatever artifacts that arm gives an agent. A change request that
+   begins with an incident also carries the runtime evidence for it: HTTP
+   transcripts and service logs captured from the running pinned application,
+   the same bytes for every arm, placed in the worktree and referred to in each
+   arm's own idiom. It is input, never ground truth.
 3. The pinned executor runs headlessly in that worktree under three budgets: a
    cost ceiling it enforces itself, and a turn cap and a wall clock the harness
    enforces around it. The whole event stream is captured as it arrives.
@@ -140,6 +144,16 @@ the pristine pin: every hidden acceptance check must fail on the unmodified
 application and every `must` invariant must pass. A check that is already green
 cannot tell a successful run from an agent that did nothing. `make calibrate`
 does it and records the result in `bench/calibration.json`.
+
+The evidence itself is captured, not written: `make evidence` reproduces each
+incident against the running application and writes what it observed under
+`bench/evidence/`, with a record of the pin it was taken against. A change
+request whose evidence was captured against another commit fails validation.
+
+Verification needs no running application — every change request is settled by
+module tests. `bench/VERIFICATION.md` says why, and records the one thing this
+harness cannot do yet: the stack runner boots the pin rather than a run's
+workspace, so no check may be pointed at a live system.
 
 ## What the evaluation reports
 

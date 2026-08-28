@@ -1,0 +1,72 @@
+id: CR-107
+title: Read one vet by identifier
+category: feature
+modules: [vets]
+risk_class: low
+needs_stack: false
+difficulty: single_endpoint
+difficulty_rationale: >-
+  A read endpoint in the one module the pilot never touched. It is the vets
+  category floor: an arm that cannot add a mapping cannot do the harder ones.
+  The only trap is that an absent vet already answers 404 because no mapping
+  exists, so an agent that stops at the not-found case has changed nothing.
+
+statement: |
+  The vets service can list every vet and nothing else. A caller that knows a
+  vet's identifier still has to fetch the whole list and filter it.
+
+  Add a read operation at GET /vets/{vetId}.
+
+behaviours:
+  - id: reads-one-vet
+    statement: The operation answers 200 with that vet, in the same representation the list already uses for each element.
+  - id: unknown-vet-not-found
+    statement: A vet that does not exist is answered 404 Not Found.
+  - id: list-unchanged
+    statement: Listing vets is unaffected.
+
+boundaries:
+  - id: reuse-the-representation
+    category: compatibility
+    obligation: must
+    statement: A vet is rendered as the list already renders one; do not define a second shape.
+  - id: no-new-dependency
+    category: architecture
+    obligation: must
+    statement: Add no dependency to the module.
+  - id: vets-service-only
+    category: architecture
+    obligation: must
+    statement: The feature belongs in the vets service.
+
+context: |
+  The list operation is the only mapping in the vets service today.
+
+must_invariants:
+  - id: invariant:existing-tests-pass
+    kind: module_tests_pass
+    statement: The tests the module already had must still pass.
+  - id: invariant:no-new-dependency
+    kind: no_new_dependency
+    statement: No dependency may be added to the module.
+  - id: invariant:list-mapping-intact
+    kind: text_present
+    paths:
+      - spring-petclinic-vets-service/src/main/java/org/springframework/samples/petclinic/vets/web/VetResource.java
+    pattern: "@GetMapping"
+    statement: The list operation keeps its mapping.
+  - id: invariant:vets-service-only
+    kind: paths_untouched
+    prefixes:
+      - spring-petclinic-customers-service
+      - spring-petclinic-visits-service
+      - spring-petclinic-api-gateway
+    statement: The feature belongs in the vets service.
+
+acceptance:
+  - id: check:vets.read-one.by-identifier
+    module: vets
+    source: bench/checks/CR-107/VetReadAcceptanceTest.java
+    destination: spring-petclinic-vets-service/src/test/java/org/springframework/samples/petclinic/vets/web/VetReadAcceptanceTest.java
+    test_class: org.springframework.samples.petclinic.vets.web.VetReadAcceptanceTest
+    statement: A known vet answers 200 with its fields; an unknown one answers 404; the list still answers.

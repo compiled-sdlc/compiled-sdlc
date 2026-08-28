@@ -23,6 +23,7 @@ from pipelines.common import locks
 
 CHANGE_REQUEST_DIR = locks.REPO_ROOT / "bench" / "change-requests"
 CHECKS_DIR = locks.REPO_ROOT / "bench" / "checks"
+EVIDENCE_DIR = locks.REPO_ROOT / "bench" / "evidence"
 SCHEMA_PATH = locks.REPO_ROOT / "bench" / "change-request.schema.json"
 
 # The only fields an arm may put in front of an agent.
@@ -30,14 +31,27 @@ BRIEF_FIELDS = (
     "id",
     "title",
     "category",
-    "module",
+    "modules",
     "statement",
     "context",
     "behaviours",
     "boundaries",
+    "evidence",
 )
 
 CATEGORIES = ("feature", "bug_fix", "non_functional", "incident")
+
+# What makes a change request hard. The pilot scored every arm at every request,
+# so a set of single-endpoint changes cannot separate arms on success; these are
+# the shapes the full set is built from instead.
+DIFFICULTIES = (
+    "single_endpoint",
+    "cross_service",
+    "misleading_obvious_fix",
+    "invariant_tripping_nfr",
+    "live_stack_incident",
+    "refactor_under_constraint",
+)
 
 
 @dataclass(frozen=True)
@@ -71,10 +85,39 @@ class Boundary:
 
 
 @dataclass(frozen=True)
-class AcceptanceCheck:
-    """A hidden test, and where the harness puts it to run it."""
+class EvidenceArtifact:
+    """One thing that was observed, and where it lives."""
 
     id: str
+    kind: str
+    path: Path
+    caption: str
+
+    def read(self) -> str:
+        return self.path.read_text()
+
+
+@dataclass(frozen=True)
+class Evidence:
+    """What was observed of the running application, carried in as input.
+
+    Unlike the acceptance checks, this is not ground truth and is not hidden:
+    every arm renders it and the agent reads it. It is what makes an incident
+    change request an account of something that happened rather than an
+    assertion that it did.
+    """
+
+    captured_on: str
+    summary: str
+    artifacts: tuple[EvidenceArtifact, ...]
+
+
+@dataclass(frozen=True)
+class AcceptanceCheck:
+    """A hidden test, the module it runs in, and where the harness puts it."""
+
+    id: str
+    module: str
     source: Path
     destination: str
     test_class: str
@@ -92,20 +135,36 @@ class ChangeRequest:
     id: str
     title: str
     category: str
-    module: str
+    modules: tuple[str, ...]
     risk_class: str
     statement: str
     context: str
     needs_stack: bool
+    difficulty: str
+    difficulty_rationale: str
     behaviours: tuple[Behaviour, ...]
     boundaries: tuple[Boundary, ...]
     must_invariants: tuple[Invariant, ...]
     acceptance: tuple[AcceptanceCheck, ...]
     path: Path
+    evidence: Evidence | None = None
+
+    @property
+    def module(self) -> str:
+        """The module the change principally belongs to."""
+        return self.modules[0]
 
     @property
     def module_path(self) -> str:
         return locks.module_path(self.module)
+
+    @property
+    def module_paths(self) -> tuple[str, ...]:
+        """Every module the change may touch, in the order the request names them."""
+        return tuple(locks.module_path(module) for module in self.modules)
+
+    def checks_for(self, module: str) -> tuple["AcceptanceCheck", ...]:
+        return tuple(check for check in self.acceptance if check.module == module)
 
     def brief(self) -> dict:
         """The agent's view: the work, and nothing that decides the work."""
@@ -113,7 +172,7 @@ class ChangeRequest:
             "id": self.id,
             "title": self.title,
             "category": self.category,
-            "module": self.module_path,
+            "modules": list(self.module_paths),
             "statement": self.statement.strip(),
             "context": self.context.strip(),
             "behaviours": [
@@ -127,6 +186,20 @@ class ChangeRequest:
                     "statement": item.statement,
                 }
                 for item in self.boundaries
+            ],
+            "evidence": self.evidence_brief(),
+        }
+
+    def evidence_brief(self) -> dict | None:
+        """What was observed, as the arms are given it. The same content in each."""
+        if self.evidence is None:
+            return None
+        return {
+            "captured_on": self.evidence.captured_on,
+            "summary": self.evidence.summary.strip(),
+            "artifacts": [
+                {"id": item.id, "kind": item.kind, "caption": item.caption, "name": item.path.name}
+                for item in self.evidence.artifacts
             ],
         }
 
@@ -151,7 +224,9 @@ def parse(document: dict, path: Path) -> ChangeRequest:
         id=document["id"],
         title=document["title"],
         category=document["category"],
-        module=document["module"],
+        modules=tuple(document["modules"]),
+        difficulty=document["difficulty"],
+        difficulty_rationale=document["difficulty_rationale"],
         risk_class=document["risk_class"],
         statement=document["statement"],
         context=document.get("context", ""),
@@ -182,6 +257,7 @@ def parse(document: dict, path: Path) -> ChangeRequest:
         acceptance=tuple(
             AcceptanceCheck(
                 id=item["id"],
+                module=item["module"],
                 source=locks.REPO_ROOT / item["source"],
                 destination=item["destination"],
                 test_class=item["test_class"],
@@ -190,6 +266,25 @@ def parse(document: dict, path: Path) -> ChangeRequest:
             for item in document["acceptance"]
         ),
         path=path,
+        evidence=parse_evidence(document.get("evidence")),
+    )
+
+
+def parse_evidence(document: dict | None) -> Evidence | None:
+    if not document:
+        return None
+    return Evidence(
+        captured_on=document["captured_on"],
+        summary=document["summary"],
+        artifacts=tuple(
+            EvidenceArtifact(
+                id=item["id"],
+                kind=item["kind"],
+                path=locks.REPO_ROOT / item["path"],
+                caption=item["caption"],
+            )
+            for item in document["artifacts"]
+        ),
     )
 
 
@@ -226,17 +321,32 @@ def check_set(directory: Path | None = None) -> list[str]:
         if request.path.stem != request.id:
             problems.append(f"{request.path.name}: names {request.id}")
         try:
-            module = request.module_path
+            module_paths = {module: locks.module_path(module) for module in request.modules}
         except KeyError as error:
             problems.append(f"{request.id}: {error}")
             continue
         for check in request.acceptance:
+            if check.module not in module_paths:
+                named = ", ".join(sorted(module_paths))
+                problems.append(
+                    f"{request.id}: {check.id} runs in {check.module}, which the request "
+                    f"does not name (it names {named})"
+                )
+                continue
             if not check.source.exists():
                 problems.append(f"{request.id}: {check.id} has no test at {check.source}")
             elif check.simple_class_name not in check.source.read_text():
                 problems.append(f"{request.id}: {check.source.name} does not define its test class")
-            if not check.destination.startswith(module):
-                problems.append(f"{request.id}: {check.id} lands outside {module}")
+            if not check.destination.startswith(module_paths[check.module]):
+                problems.append(
+                    f"{request.id}: {check.id} lands outside {module_paths[check.module]}"
+                )
+        for module in request.modules:
+            if not any(check.module == module for check in request.acceptance):
+                problems.append(
+                    f"{request.id}: names module {module} but no hidden check runs there"
+                )
+        problems.extend(evidence_problems(request))
         checkout = locks.target_checkout()
         if not checkout.exists():
             continue
@@ -246,6 +356,43 @@ def check_set(directory: Path | None = None) -> list[str]:
                     problems.append(
                         f"{request.id}: {invariant.id} names {path}, which the pin does not have"
                     )
+    return problems
+
+
+def evidence_problems(request: ChangeRequest) -> list[str]:
+    """Whether a request's evidence is really there and really from this pin.
+
+    The schema already insists an incident carries evidence. What it cannot see
+    is whether the files exist, and whether they were captured against the
+    commit the experiment is pinned to --- evidence from another version of the
+    application would describe behaviour the agent is not looking at.
+    """
+    problems: list[str] = []
+    if request.evidence is None:
+        return problems
+    pin = locks.target()["target"]["commit"]
+    for artifact in request.evidence.artifacts:
+        if not artifact.path.exists():
+            problems.append(f"{request.id}: {artifact.id} has no artifact at {artifact.path}")
+    capture = EVIDENCE_DIR / request.id / "capture.json"
+    if not capture.exists():
+        problems.append(
+            f"{request.id}: no capture record at {capture}; evidence is captured by "
+            f"infra/capture_evidence.py, not written by hand"
+        )
+        return problems
+    recorded = json.loads(capture.read_text())
+    if recorded.get("pin_commit") != pin:
+        problems.append(
+            f"{request.id}: evidence was captured against {recorded.get('pin_commit')}, "
+            f"not the pinned {pin}"
+        )
+    if recorded.get("captured_on") != request.evidence.captured_on:
+        problems.append(
+            f"{request.id}: says the evidence was captured on "
+            f"{request.evidence.captured_on}, the capture record says "
+            f"{recorded.get('captured_on')}"
+        )
     return problems
 
 
@@ -259,9 +406,11 @@ def main() -> int:
         return 1
     for request in load_all():
         print(
-            f"ok    {request.id}  {request.category:15s} {request.module_path}"
-            f"  {len(request.must_invariants)} invariants"
-            f"  {len(request.acceptance)} hidden check(s)"
+            f"ok    {request.id}  {request.category:15s} {request.difficulty:24s}"
+            f"  {'+'.join(request.modules):18s}"
+            f"  {len(request.must_invariants)} inv"
+            f"  {len(request.acceptance)} check(s)"
+            f"{'  live stack' if request.needs_stack else ''}"
         )
     print("\nchange-request set is consistent")
     return 0

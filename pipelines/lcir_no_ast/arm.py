@@ -11,12 +11,13 @@ from pathlib import Path
 
 from pipelines.common.changerequests import ChangeRequest
 from pipelines.lcir import finalise as finaliser
-from pipelines.lcir.arm import PRESENTATION
+from pipelines.lcir.arm import OBSERVATIONS, PRESENTATION
 from pipelines.lcir.arm import Arm as FullArm
 
 
 class Arm(FullArm):
     name = "lcir_no_ast"
+    templates = (PRESENTATION, OBSERVATIONS)
     editing = (
         "Edit the source however you see fit. Read the build and test output for "
         "feedback on what you have done."
@@ -27,7 +28,10 @@ class Arm(FullArm):
         brief = request.brief()
         directory = self.artifact_directory(workspace).relative_to(workspace)
         return PRESENTATION.format(
-            identifier=brief["id"], title=brief["title"], directory=directory
+            identifier=brief["id"],
+            title=brief["title"],
+            directory=directory,
+            observations=self.observations_note(request, workspace),
         )
 
     def finalise(
