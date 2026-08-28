@@ -5,7 +5,7 @@ UV ?= uv
 
 .DEFAULT_GOAL := all
 .PHONY: all help setup scaffold lint fmt test audit install-hook \
-        schemas bench-setup bench-status bench-validate calibrate bench bench-plan smoke stack-start stack-stop stack-status eval project manuscript clean
+        schemas bench-setup bench-status bench-validate calibrate bench bench-plan smoke stack-start stack-stop stack-status eval project manuscript manuscript-budget clean
 
 all: lint test audit
 
@@ -28,7 +28,8 @@ help:
 	@echo "stack-start   run the target application locally as folder-local processes"
 	@echo "stack-stop    stop it;  stack-status  report on each service"
 	@echo "eval          regenerate every metric and figure from runs/"
-	@echo "manuscript    build the manuscript PDF"
+	@echo "manuscript    regenerate its numbers and build the PDF"
+	@echo "manuscript-budget  count the manuscript against its word budget"
 	@echo "clean         remove caches and build state"
 
 setup:
@@ -94,7 +95,10 @@ project:
 	@$(UV) run python -m eval.projection $(PROJECT_FLAGS)
 
 manuscript:
-	@echo "manuscript: implemented in phase 5"; exit 1
+	@bash infra/build_manuscript.sh $(MANUSCRIPT_FLAGS)
+
+manuscript-budget:
+	@$(UV) run python infra/wordcount.py manuscript/main.tex
 
 clean:
 	rm -rf .pytest_cache .ruff_cache
