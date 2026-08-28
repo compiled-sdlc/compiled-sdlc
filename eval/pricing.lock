@@ -1,0 +1,33 @@
+# Price table for costing recorded token counts.
+#
+# Monetary cost is always recomputed as recorded tokens times these prices, and
+# never taken from a billing statement or from the executor's own cost field:
+# a number in the paper must be reproducible from the run records alone, with
+# the price it was computed at stated.
+#
+# Along with bench/executor.lock, this is one of the two tracked files allowed
+# to name a vendor or a model.
+
+schema_version = 1
+currency = "USD"
+unit = "per million tokens"
+captured_on = "2026-08-28"
+source = "first-party list prices for the pinned model, captured on the date above"
+
+# Reasoning tokens are billed as output tokens and are already included in the
+# recorded output count; they are reported separately but not priced separately.
+reasoning_tokens_billed_as = "output"
+
+[models."claude-sonnet-5"]
+input = 2.0
+output = 10.0
+cache_write_5m = 2.5
+cache_write_1h = 4.0
+cache_read = 0.2
+
+[models."claude-haiku-4-5-20251001"]
+input = 1.0
+output = 5.0
+cache_write_5m = 1.25
+cache_write_1h = 2.0
+cache_read = 0.1

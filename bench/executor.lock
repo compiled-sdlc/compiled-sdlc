@@ -1,0 +1,61 @@
+# The experimental engine, pinned.
+#
+# This file and eval/pricing.lock are the only tracked files in the repository
+# that name a vendor, a product, a model, or a credential variable. Everything
+# else reads these values at runtime. See the vendor-string confinement note in
+# pipelines/common/locks.py.
+#
+# Nothing here may change between arms or between runs of one experiment: token
+# counts are not comparable across model generations, and a cost is only
+# meaningful against the prices it was computed with.
+
+schema_version = 1
+
+[cli]
+binary = "claude"
+version = "2.1.250"
+npm_package = "@anthropic-ai/claude-code"
+npm_version = "2.1.250"
+# `claude --version` and `npm ls -g` on the run host.
+verified_on = "2026-08-28"
+
+[credentials]
+# Read from the untracked dotenv at the repository root, passed to the executor
+# process only, and never written into a run workspace or a transcript.
+variable = "ANTHROPIC_API_KEY"
+dotenv = ".env"
+
+[model]
+id = "claude-sonnet-5"
+context_window = 1000000
+max_output_tokens = 128000
+resolved_on = "2026-08-28"
+# Resolved against the live model listing rather than from memory. The current
+# generation carries no date suffix; the previous one does, so an identifier of
+# the form <name>-<date> would name an older model or none at all.
+resolution = "GET /v1/models"
+
+[model.debug]
+# For harness debugging only. No number from a run on this model may be
+# reported anywhere.
+id = "claude-haiku-4-5-20251001"
+
+[invocation]
+# Flags verified against `--help` for the pinned version, not from memory.
+output_format = "stream-json"
+permission_mode = "bypassPermissions"
+# The built-in tool set every arm gets. Deliberately excludes the network
+# research and delegation tools: an agent that can search the web can find the
+# upstream project's own solution, and an agent that can spawn subagents makes
+# its own token accounting unattributable.
+tools = ["Bash", "Edit", "Glob", "Grep", "Read", "Write"]
+# Ignore user, project and local settings so a run does not inherit the host.
+setting_sources = ""
+extra_flags = ["--verbose", "--strict-mcp-config", "--no-session-persistence"]
+
+[budget]
+# Identical for every arm. The cost ceiling is enforced by the executor itself;
+# the turn cap and the wall clock are enforced by the harness around it.
+max_turns = 60
+wall_clock_seconds = 1800
+max_cost_usd = 2.0
