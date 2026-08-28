@@ -28,7 +28,7 @@ from eval.records import RunSet
 
 COMPONENTS = {
     "plan_validity": "the change was stated as a transformation plan that validates",
-    "bundle_assembly": "the plan, evidence and provenance assembled into a valid bundle",
+    "bundle_assembly": "the bundle the arm owed assembled and validated",
     "tier_approval": "the human decision the risk class demands was recorded",
     "evidence_path": "every obligation is discharged by passing evidence",
     "provenance": "every transformation is accounted for by a ledger entry",
@@ -62,8 +62,10 @@ def produces_ir(record: dict) -> bool:
 def states_a_plan(record: dict) -> bool:
     """Whether this arm is asked to state its change as a plan.
 
-    The ablation arm is not, so it has no plan to validate and no bundle to
-    assemble. Not writing one is compliance with its own instructions.
+    The ablation arm is not, so it has no plan to validate and no
+    transformations to attribute. Not writing one is compliance with its own
+    instructions, never a governance gap. It does still assemble a bundle --
+    intent, constraints, evidence and provenance -- and that bundle is scored.
     """
     return artifacts(record).get("transformation_plan_expected", False)
 
@@ -75,6 +77,12 @@ def plan_validity(record: dict) -> Reading:
 
 
 def bundle_assembly(record: dict) -> Reading:
+    """Whether the bundle this arm owed assembled and validated.
+
+    What an arm owes differs: with a plan where one was asked for, without
+    where none was. Scoring every arm against a plan marked the ablation arm
+    down for obeying its own instructions.
+    """
     if not states_a_plan(record):
         return NOT_APPLICABLE
     return Reading(True, 1.0 if artifacts(record).get("bundle_validated") else 0.0)
@@ -108,7 +116,13 @@ def evidence_path(record: dict) -> Reading:
 
 
 def provenance(record: dict) -> Reading:
-    if not produces_ir(record):
+    """Whether the ledger accounts for the transformations the run made.
+
+    Only meaningful where there are transformations, which means only where a
+    plan was asked for: with none, the fraction is vacuously one and would
+    flatter the arm that wrote nothing.
+    """
+    if not states_a_plan(record):
         return NOT_APPLICABLE
     value = artifacts(record).get("transformations_attributed")
     return Reading(True, None if value is None else float(value))

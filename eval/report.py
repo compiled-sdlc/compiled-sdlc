@@ -82,12 +82,19 @@ def governance_table(indices: list[governance.Index]) -> str:
         cells = []
         for name in governance.COMPONENTS:
             component = index.components[name]
-            cells.append(
-                f"{component.value:16.2f}" if component.observable else f"{component.state:>16s}"
-            )
+            if component.observable:
+                # The figure alone hides how much of the arm it rests on: a
+                # component scored on two cells of twelve is not the same claim
+                # as one scored on all twelve.
+                shown = f"{component.value:.2f} ({component.scored}/{component.applicable_cells})"
+            else:
+                shown = component.state
+            cells.append(f"{shown:>16s}")
         lines.append(f"{index.arm:13s} {rendered}  " + "  ".join(cells))
     lines.append("")
-    lines.append("`not observable`: the arm produces no IR and cannot take the check — not a zero.")
+    lines.append("Each figure is followed by the cells it was scored on, out of the cells the")
+    lines.append("component applies to.")
+    lines.append("`not observable`: the arm cannot take the check at all — not a zero.")
     lines.append("`not recorded`:   the arm can, but these runs carry no figure for it.")
     lines.append("Nothing here enters the success denominator — a governance gap is not a")
     lines.append("failed change request, and only the arms that produce IR can even see one.")

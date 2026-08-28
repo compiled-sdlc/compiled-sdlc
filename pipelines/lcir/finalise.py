@@ -147,33 +147,47 @@ def finalise(
         "change_request": request.id,
         "title": request.title,
         "created_at": verification["observed_at"],
+        # A slot named here must be readable, so the plan appears only when the
+        # run produced one. The ablation arm is never asked for a plan, and a
+        # manifest that promised one would make its bundle unloadable and its
+        # coverage unmeasurable.
         "documents": {
-            "intent_graph": "intent-graph.json",
-            "constraint_graph": "constraint-graph.json",
-            "transformation_plan": "transformation-plan.json",
-            "evidence_graph": "evidence-graph.json",
-            "provenance_ledger": "provenance-ledger.json",
+            name: document
+            for name, document in (
+                ("intent_graph", "intent-graph.json"),
+                ("constraint_graph", "constraint-graph.json"),
+                ("transformation_plan", "transformation-plan.json"),
+                ("evidence_graph", "evidence-graph.json"),
+                ("provenance_ledger", "provenance-ledger.json"),
+            )
+            if document in documents
         },
     }
     (directory / "bundle.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
-    problems: list[str] = []
-    obligations_traced: float | None = None
-    transformations_attributed: float | None = None
-    if "transformation-plan.json" in documents:
-        bundle, load_problems = load_bundle(directory)
-        problems = [str(problem) for problem in load_problems]
-        problems += [
-            str(problem)
-            for problem in check_bundle(bundle, bundle.nodes())
-            if problem.severity == "error"
-        ]
-        # Recorded here so the evaluation can read them off the run record: the
-        # metrics are computed from the records alone, never by re-reading the
-        # bundles a run happened to leave behind.
-        coverage, _ = measure(bundle, bundle.nodes())
-        obligations_traced = round(coverage.obligations_traced, 4)
-        transformations_attributed = round(coverage.transformations_attributed, 4)
+    # Every IR bundle is loaded and measured, whether or not a plan was written.
+    # Obligations are discharged by the evidence graph and attributed by the
+    # ledger, both of which the harness writes either way; measuring only the
+    # bundles that carried a plan left the ablation arm with no figure at all
+    # and made its governance look unobservable rather than merely planless.
+    bundle, load_problems = load_bundle(directory)
+    problems = [str(problem) for problem in load_problems]
+    problems += [
+        str(problem)
+        for problem in check_bundle(bundle, bundle.nodes())
+        if problem.severity == "error"
+    ]
+    # Recorded here so the evaluation can read them off the run record: the
+    # metrics are computed from the records alone, never by re-reading the
+    # bundles a run happened to leave behind.
+    coverage, _ = measure(bundle, bundle.nodes())
+    obligations_traced = round(coverage.obligations_traced, 4)
+    # With no transformations at all the fraction is vacuously one. That is not
+    # a governance success, so it is recorded as no figure rather than a perfect
+    # one.
+    transformations_attributed = (
+        round(coverage.transformations_attributed, 4) if coverage.transformation_total > 0 else None
+    )
 
     from projections import render
 
@@ -191,7 +205,12 @@ def finalise(
         "transformation_plan_expected": plan_expected,
         "transformation_plan_problems": plan_problems[:5],
         "bundle_problems": problems[:10],
-        "bundle_validated": bool(problems == [] and "transformation-plan.json" in documents),
+        # The bundle an arm owed: with a plan where one was expected, without
+        # where none was. Requiring a plan of every arm scored the ablation arm
+        # zero for not doing something it was never asked to do.
+        "bundle_validated": bool(
+            problems == [] and (not plan_expected or "transformation-plan.json" in documents)
+        ),
         "tier_required": (
             documents["constraint-graph.json"]["risk"]["autonomy_tier"] in {"L2", "L3"}
         ),
