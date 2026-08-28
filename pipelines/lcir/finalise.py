@@ -128,9 +128,7 @@ def finalise(
     documents = compiler.documents(request)
     # The kept bundle records the invariants the run was scored against, which
     # the workspace copy does not carry; the evidence below discharges them.
-    documents["constraint-graph.json"] = compiler.constraint_graph(
-        request, include_invariants=True
-    )
+    documents["constraint-graph.json"] = compiler.constraint_graph(request, include_invariants=True)
     documents["evidence-graph.json"] = compiler.evidence_graph(request, verification)
     documents["provenance-ledger.json"] = provenance_ledger(request, verification, None)
 

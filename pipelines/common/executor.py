@@ -341,9 +341,23 @@ def execute(
         "CI": "1",
         variable: secret,
     }
-    for passthrough in ("JAVA_HOME", "MAVEN_OPTS", "TMPDIR", "SSL_CERT_FILE"):
+    for passthrough in ("MAVEN_OPTS", "TMPDIR", "SSL_CERT_FILE"):
         if passthrough in os.environ:
             environment[passthrough] = os.environ[passthrough]
+
+    # The agent builds and tests the target application, so it needs the same JDK
+    # the harness verifies with — the one named in the dotenv, not whatever the
+    # ambient path happens to offer. Imported here rather than at module scope
+    # because the toolchain reads the dotenv through this module.
+    from pipelines.common import toolchain
+
+    try:
+        home = toolchain.java_home()
+    except toolchain.ToolchainUnavailable:
+        home = None
+    if home is not None:
+        environment[toolchain.JAVA_HOME] = str(home)
+        environment["PATH"] = f"{home / 'bin'}{os.pathsep}{environment['PATH']}"
 
     state = StreamState()
     started = time.monotonic()

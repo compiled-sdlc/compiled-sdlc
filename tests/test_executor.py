@@ -506,3 +506,20 @@ def test_the_longer_cache_lifetime_is_shared_out_by_each_models_share(tmp_path, 
     execution = run(script, workspace, tmp_path, dotenv)
     assert execution.per_model_usage["a-model"].cache_creation_1h_tokens == 300
     assert execution.per_model_usage["a-smaller-model"].cache_creation_1h_tokens == 100
+
+
+def test_the_agent_gets_the_configured_jdk(tmp_path, workspace, dotenv):
+    """The agent builds the application, so its shell needs the same JDK the harness uses."""
+    from pipelines.common import toolchain
+
+    script = stand_in(
+        tmp_path,
+        "first = os.environ['PATH'].split(os.pathsep)[0]\n"
+        "print(json.dumps({'type': 'system', 'subtype': 'init',"
+        " 'java_home': os.environ.get('JAVA_HOME'), 'path': first}))\n" + emit(result_event()),
+    )
+    run(script, workspace, tmp_path, dotenv)
+    first = json.loads((tmp_path / "cell" / "transcript.jsonl").read_text().splitlines()[0])
+    expected = toolchain.java_home()
+    assert first["java_home"] == str(expected)
+    assert first["path"] == str(expected / "bin"), "and it leads the path"
