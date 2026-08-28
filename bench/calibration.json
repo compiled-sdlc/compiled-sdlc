@@ -17,7 +17,7 @@
       },
       "calibrated": true,
       "change_request": "CR-101",
-      "duration_seconds": 15.2,
+      "duration_seconds": 15.0,
       "findings": [],
       "invariants": [
         {
@@ -61,7 +61,7 @@
       },
       "calibrated": true,
       "change_request": "CR-102",
-      "duration_seconds": 14.2,
+      "duration_seconds": 14.9,
       "findings": [],
       "invariants": [
         {
@@ -105,7 +105,7 @@
       },
       "calibrated": true,
       "change_request": "CR-103",
-      "duration_seconds": 15.5,
+      "duration_seconds": 14.9,
       "findings": [],
       "invariants": [
         {
@@ -154,7 +154,7 @@
       },
       "calibrated": true,
       "change_request": "CR-104",
-      "duration_seconds": 16.7,
+      "duration_seconds": 14.6,
       "findings": [],
       "invariants": [
         {
@@ -203,7 +203,7 @@
       },
       "calibrated": true,
       "change_request": "CR-105",
-      "duration_seconds": 15.3,
+      "duration_seconds": 14.7,
       "findings": [],
       "invariants": [
         {

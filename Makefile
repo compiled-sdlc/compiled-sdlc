@@ -88,7 +88,7 @@ stack-status:
 	@$(UV) run python infra/stack.py status
 
 eval:
-	@echo "eval: implemented in phase 4"; exit 1
+	@$(UV) run python -m eval.pilot $(EVAL_FLAGS)
 
 manuscript:
 	@echo "manuscript: implemented in phase 5"; exit 1
