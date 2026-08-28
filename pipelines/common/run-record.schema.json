@@ -24,7 +24,7 @@
     "arm": {"enum": ["baseline", "lcir", "lcir_no_ast", "compressed"]},
     "seed": {"type": "integer", "minimum": 1},
     "status": {
-      "description": "completed and agent_failed are outcomes of the agent; aborted and budget_exhausted are outcomes of the apparatus and are never counted as agent failures.",
+      "description": "completed, agent_failed, verification_failed and budget_exhausted are outcomes charged to the arm: the budget is a condition of the experiment, identical across arms, so an agent that spends it without finishing has failed. aborted means the API would not serve the cell — an exhausted balance, a rate limit, an authentication failure — which measures nothing about the arm and is excluded from the metrics.",
       "enum": [
         "completed",
         "agent_failed",
@@ -44,6 +44,7 @@
         "timeout",
         "turn_budget",
         "cost_budget",
+        "wall_clock",
         "executor_crash",
         "setup_failed",
         "unknown",

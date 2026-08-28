@@ -30,8 +30,22 @@ TERMINAL_STATUSES = frozenset(
     {"completed", "agent_failed", "aborted", "budget_exhausted", "verification_failed"}
 )
 
-# Why a cell stopped short. An aborted cell is an apparatus failure and is never
-# counted as an agent failure in the metrics.
+# What a status means for the measurement, fixed here so every consumer agrees.
+#
+# A cell that ran out of budget — cost ceiling, turn cap or wall clock — is a
+# failure of the agent, not of the apparatus: the budget is a condition of the
+# experiment, identical for every arm, and an agent that spends it without
+# finishing has failed the change request. It counts against its arm and its
+# cost counts in the metric, which is the whole point of dividing cost by
+# verified successes.
+#
+# A cell that ended because the API would not serve it — an exhausted balance, a
+# rate limit, an authentication failure — measures nothing about the arm. It is
+# excluded from the metrics entirely and can be run again.
+AGENT_FAILURE_STATUSES = frozenset({"agent_failed", "verification_failed", "budget_exhausted"})
+EXCLUDED_STATUSES = frozenset({"aborted"})
+
+# Why a cell stopped short.
 ERROR_CLASSES = frozenset(
     {
         "rate_limit",
@@ -42,16 +56,31 @@ ERROR_CLASSES = frozenset(
         "timeout",
         "turn_budget",
         "cost_budget",
+        "wall_clock",
         "executor_crash",
         "setup_failed",
         "unknown",
     }
 )
 
-# Failures of the apparatus rather than of the agent.
+# Failures of the apparatus rather than of the agent. `timeout` here is an API
+# call that never answered, not the harness's own wall clock, which is a budget.
 ABORT_CLASSES = frozenset(
     {"rate_limit", "credit_exhausted", "overloaded", "auth", "network", "timeout", "setup_failed"}
 )
+
+# Budgets the harness or the executor enforces. Reaching one is an agent failure.
+BUDGET_CLASSES = frozenset({"turn_budget", "cost_budget", "wall_clock"})
+
+
+def counts_towards_the_arm(status: str) -> bool:
+    """Whether a cell says anything about the arm that ran it."""
+    return status not in EXCLUDED_STATUSES
+
+
+def is_agent_failure(status: str) -> bool:
+    """Whether a cell is a failure charged to the arm."""
+    return status in AGENT_FAILURE_STATUSES
 
 
 def now() -> str:

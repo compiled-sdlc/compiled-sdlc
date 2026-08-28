@@ -168,6 +168,7 @@ def test_the_turn_cap_stops_the_run(tmp_path, workspace, dotenv):
 
 
 def test_the_wall_clock_stops_the_run(tmp_path, workspace, dotenv):
+    """Spending the wall clock is a failure of the agent, not of the apparatus."""
     script = stand_in(tmp_path, "time.sleep(30)\n")
     execution = run(
         script,
@@ -176,9 +177,45 @@ def test_the_wall_clock_stops_the_run(tmp_path, workspace, dotenv):
         dotenv,
         budget=Budget(max_turns=10, wall_clock_seconds=1, max_cost_usd=1.0),
     )
-    assert execution.status == "aborted"
-    assert execution.error_class == "timeout"
+    assert execution.status == "budget_exhausted"
+    assert execution.error_class == "wall_clock"
     assert execution.wall_time_seconds < 20
+
+
+def test_spending_the_cost_ceiling_is_a_budget_stop_not_a_success(tmp_path, workspace, dotenv):
+    script = stand_in(tmp_path, emit(result_event(total_cost_usd=1.0)))
+    execution = run(
+        script,
+        workspace,
+        tmp_path,
+        dotenv,
+        budget=Budget(max_turns=10, wall_clock_seconds=30, max_cost_usd=1.0),
+    )
+    assert execution.status == "budget_exhausted"
+    assert execution.error_class == "cost_budget"
+    assert "ceiling" in execution.error_detail
+
+
+def test_a_run_well_inside_its_ceiling_is_not_a_budget_stop(tmp_path, workspace, dotenv):
+    script = stand_in(tmp_path, emit(result_event(total_cost_usd=0.1)))
+    execution = run(
+        script,
+        workspace,
+        tmp_path,
+        dotenv,
+        budget=Budget(max_turns=10, wall_clock_seconds=30, max_cost_usd=1.0),
+    )
+    assert execution.status == "completed"
+
+
+def test_budget_stops_count_towards_the_arm_and_api_failures_do_not():
+    from pipelines.common import telemetry
+
+    assert telemetry.is_agent_failure("budget_exhausted")
+    assert telemetry.is_agent_failure("verification_failed")
+    assert telemetry.counts_towards_the_arm("budget_exhausted")
+    assert not telemetry.counts_towards_the_arm("aborted")
+    assert telemetry.BUDGET_CLASSES.isdisjoint(telemetry.ABORT_CLASSES)
 
 
 def test_the_cost_ceiling_is_handed_to_the_executor():

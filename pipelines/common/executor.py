@@ -379,8 +379,8 @@ def execute(
         while True:
             if time.monotonic() > deadline:
                 _terminate(process)
-                status, error_class = "aborted", "timeout"
-                error_detail = f"no result within {budget.wall_clock_seconds:g}s"
+                status, error_class = "budget_exhausted", "wall_clock"
+                error_detail = f"did not finish within {budget.wall_clock_seconds:g}s"
                 break
             ready, _, _ = select.select([process.stdout], [], [], POLL_SECONDS)
             if ready:
@@ -411,6 +411,18 @@ def execute(
 
     result = state.result or {}
     wall_time = time.monotonic() - started
+
+    if status == "completed":
+        spent = result.get("total_cost_usd")
+        terminal = " ".join(
+            str(result.get(field) or "") for field in ("terminal_reason", "subtype", "stop_reason")
+        ).lower()
+        exhausted_budget = "budget" in terminal or (
+            isinstance(spent, int | float) and spent >= budget.max_cost_usd * 0.99
+        )
+        if exhausted_budget:
+            status, error_class = "budget_exhausted", "cost_budget"
+            error_detail = f"spent ${spent or 0:.4f} of a ${budget.max_cost_usd:g} ceiling"
 
     if status == "completed":
         reported = "\n".join(state.errors + [stderr_text])
