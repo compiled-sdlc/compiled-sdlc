@@ -8,9 +8,13 @@ success denominator.
 import pytest
 
 from eval import governance
+from pipelines.lcir.finalise import GOVERNANCE_REVISION
 from tests.test_eval_records import a_record, a_run_set
 
 FULL_IR = {
+    # Every finalised record says which definition of these figures it was
+    # scored under; one that does not is set aside rather than mixed in.
+    "governance_revision": GOVERNANCE_REVISION,
     "transformation_plan": "valid",
     "transformation_plan_expected": True,
     "bundle_validated": True,
@@ -92,6 +96,7 @@ def test_an_arm_not_asked_for_a_plan_is_not_marked_down_for_lacking_one():
     record = a_record(
         arm="lcir_no_ast",
         arm_artifacts={
+            "governance_revision": GOVERNANCE_REVISION,
             "transformation_plan": "absent",
             "transformation_plan_expected": False,
             "bundle_validated": True,
@@ -138,26 +143,31 @@ def test_an_unchecked_tier_is_unknown_rather_than_satisfied():
     assert reading.value is None
 
 
-def test_an_older_record_is_read_from_its_bundle_problems():
-    """Records written before the outcome was recorded directly still score."""
+def test_a_record_scored_under_an_older_definition_is_set_aside():
+    """Never mixed in: the figure meant something else when it was taken."""
     artifacts = {
         "transformation_plan": "valid",
         "transformation_plan_expected": True,
         "bundle_validated": False,
-        "bundle_problems": ["error: [tier-approval-missing] provenance_ledger.entries: ..."],
-    }
-    reading = governance.tier_approval(a_record(arm="lcir", arm_artifacts=artifacts))
-    assert reading.value == 0.0
-
-
-def test_an_older_record_with_no_bundle_check_is_not_scored():
-    artifacts = {
-        "transformation_plan": "absent",
-        "transformation_plan_expected": True,
-        "bundle_validated": False,
         "bundle_problems": [],
-    }
-    assert governance.tier_approval(a_record(arm="lcir", arm_artifacts=artifacts)).applies is False
+        "tier_required": True,
+        "tier_satisfied": False,
+        "obligations_traced": 1.0,
+    }  # no governance_revision: written before the definition changed
+    record = a_record(arm="lcir", arm_artifacts=artifacts)
+    for reader in (governance.bundle_assembly, governance.tier_approval, governance.evidence_path):
+        reading = reader(record)
+        assert reading.comparable is False
+        assert reading.value is None
+
+    component = governance.component_for((record,), "bundle_assembly")
+    assert component.state == "not comparable"
+    assert component.set_aside == 1
+    assert component.value is None
+
+
+def test_a_tier_that_was_never_required_is_not_scored():
+    assert governance.tier_approval(ir_record(tier_required=False)).applies is False
 
 
 def test_evidence_and_provenance_coverage_are_read_as_fractions():

@@ -87,6 +87,8 @@ def governance_table(indices: list[governance.Index]) -> str:
                 # component scored on two cells of twelve is not the same claim
                 # as one scored on all twelve.
                 shown = f"{component.value:.2f} ({component.scored}/{component.applicable_cells})"
+                if component.set_aside:
+                    shown += f" -{component.set_aside}"
             else:
                 shown = component.state
             cells.append(f"{shown:>16s}")
@@ -94,7 +96,9 @@ def governance_table(indices: list[governance.Index]) -> str:
     lines.append("")
     lines.append("Each figure is followed by the cells it was scored on, out of the cells the")
     lines.append("component applies to.")
-    lines.append("`not observable`: the arm cannot take the check at all — not a zero.")
+    lines.append("`not observable`:  the arm cannot take the check at all — not a zero.")
+    lines.append("`not comparable`:  scored under a superseded definition; set aside, never mixed.")
+    lines.append("A trailing -n counts cells set aside for that reason.")
     lines.append("`not recorded`:   the arm can, but these runs carry no figure for it.")
     lines.append("Nothing here enters the success denominator — a governance gap is not a")
     lines.append("failed change request, and only the arms that produce IR can even see one.")

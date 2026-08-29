@@ -30,6 +30,19 @@ from lcir.integrity import check_bundle  # noqa: E402
 from lcir.schemas import validate_document  # noqa: E402
 
 BUNDLE_DIRECTORY = "lifecycle-ir"
+
+#: Which definition of the governance figures a record was scored under. Raise
+#: it whenever the validator or the coverage rules change what a figure means,
+#: so figures taken under different definitions can never be averaged together.
+#: 1 — the original: a bundle validated only if it carried a transformation
+#:     plan, and coverage was measured only for bundles that had one.
+#: 2 — every bundle is measured; a bundle is judged against the documents its
+#:     arm owed, so an arm never asked for a plan is not marked down for the
+#:     slot it does not owe.
+#: 3 — whether the risk class's human decision was recorded is read off the
+#:     ledger, which every IR bundle carries, rather than being gated on a
+#:     transformation plan that only one arm writes.
+GOVERNANCE_REVISION = 3
 PLAN_NAME = "transformation-plan.json"
 
 
@@ -199,6 +212,7 @@ def finalise(
 
     return {
         "bundle": str(directory.name),
+        "governance_revision": GOVERNANCE_REVISION,
         "transformation_plan": (
             "valid"
             if plan is not None and not plan_problems
@@ -218,13 +232,11 @@ def finalise(
         "tier_required": (
             documents["constraint-graph.json"]["risk"]["autonomy_tier"] in {"L2", "L3"}
         ),
-        # Unknown, not satisfied, when there was no bundle to check it against:
-        # an obligation nobody looked for is not an obligation met.
-        "tier_satisfied": (
-            None
-            if "transformation-plan.json" not in documents
-            else not any("tier-approval-missing" in problem for problem in problems)
-        ),
+        # The decision the risk class demands is recorded in the provenance
+        # ledger, which every IR bundle carries. Reading it off the plan made it
+        # unknowable for the arm that writes no plan, though its ledger answers
+        # the question as plainly as any other.
+        "tier_satisfied": not any("tier-approval-missing" in problem for problem in problems),
         "obligations_traced": obligations_traced,
         "transformations_attributed": transformations_attributed,
         "projections": rendered,

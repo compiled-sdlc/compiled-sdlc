@@ -25,6 +25,7 @@ never assembled.
 from dataclasses import dataclass
 
 from eval.records import RunSet
+from pipelines.lcir.finalise import GOVERNANCE_REVISION
 
 COMPONENTS = {
     "plan_validity": "the change was stated as a transformation plan that validates",
@@ -40,14 +41,19 @@ class Reading:
     """One component read off one cell.
 
     `applies` says whether the question can be put to this cell at all;
-    `value` is the answer when there is one.
+    `value` is the answer when there is one. `comparable` is different from
+    both: the question applies and may even have been answered, but under a
+    definition that is no longer the current one, so the answer cannot be
+    combined with answers taken under this one.
     """
 
     applies: bool
     value: float | None = None
+    comparable: bool = True
 
 
 NOT_APPLICABLE = Reading(applies=False)
+NOT_COMPARABLE = Reading(applies=False, comparable=False)
 
 
 def artifacts(record: dict) -> dict:
@@ -57,6 +63,18 @@ def artifacts(record: dict) -> dict:
 def produces_ir(record: dict) -> bool:
     """Whether this cell's arm produces IR at all."""
     return "transformation_plan" in artifacts(record)
+
+
+def comparable(record: dict) -> bool:
+    """Whether this cell's figures mean the same thing as the current ones.
+
+    A change to the validator or the coverage rules changes what a figure *is*,
+    not just its value. Averaging a figure taken under the old definition with
+    one taken under the new produces a number that describes neither, so a
+    record scored under a superseded revision is set aside until it is
+    recomputed --- never quietly folded in.
+    """
+    return artifacts(record).get("governance_revision") == GOVERNANCE_REVISION
 
 
 def states_a_plan(record: dict) -> bool:
@@ -73,6 +91,8 @@ def states_a_plan(record: dict) -> bool:
 def plan_validity(record: dict) -> Reading:
     if not states_a_plan(record):
         return NOT_APPLICABLE
+    if not comparable(record):
+        return NOT_COMPARABLE
     return Reading(True, 1.0 if artifacts(record).get("transformation_plan") == "valid" else 0.0)
 
 
@@ -86,6 +106,8 @@ def bundle_assembly(record: dict) -> Reading:
     """
     if not produces_ir(record):
         return NOT_APPLICABLE
+    if not comparable(record):
+        return NOT_COMPARABLE
     return Reading(True, 1.0 if artifacts(record).get("bundle_validated") else 0.0)
 
 
@@ -94,24 +116,19 @@ def tier_approval(record: dict) -> Reading:
     found = artifacts(record)
     if not produces_ir(record):
         return NOT_APPLICABLE
-    if "tier_required" in found:
-        if not found["tier_required"]:
-            return NOT_APPLICABLE
-        satisfied = found.get("tier_satisfied")
-        return Reading(True, None if satisfied is None else float(bool(satisfied)))
-    # Older records carry the outcome only as a bundle problem, and only a
-    # bundle that was checked carries one either way.
-    if not found.get("bundle_validated") and not found.get("bundle_problems"):
+    if not comparable(record):
+        return NOT_COMPARABLE
+    if not found.get("tier_required"):
         return NOT_APPLICABLE
-    missing = any(
-        "tier-approval-missing" in problem for problem in found.get("bundle_problems") or []
-    )
-    return Reading(True, 0.0 if missing else 1.0)
+    satisfied = found.get("tier_satisfied")
+    return Reading(True, None if satisfied is None else float(bool(satisfied)))
 
 
 def evidence_path(record: dict) -> Reading:
     if not produces_ir(record):
         return NOT_APPLICABLE
+    if not comparable(record):
+        return NOT_COMPARABLE
     value = artifacts(record).get("obligations_traced")
     return Reading(True, None if value is None else float(value))
 
@@ -125,6 +142,8 @@ def provenance(record: dict) -> Reading:
     """
     if not states_a_plan(record):
         return NOT_APPLICABLE
+    if not comparable(record):
+        return NOT_COMPARABLE
     value = artifacts(record).get("transformations_attributed")
     return Reading(True, None if value is None else float(value))
 
@@ -146,6 +165,10 @@ class Component:
     scored: int
     applicable_cells: int
     value: float | None
+    #: Cells whose figures were taken under a superseded definition. They are
+    #: neither scored nor counted against the arm; they are set aside, and said
+    #: to have been, so a shrunken denominator is never mistaken for a full one.
+    set_aside: int = 0
 
     @property
     def observable(self) -> bool:
@@ -159,6 +182,8 @@ class Component:
     def state(self) -> str:
         if self.observable:
             return "scored"
+        if self.set_aside and not self.applicable:
+            return "not comparable"
         return "not recorded" if self.applicable else "not observable"
 
     def to_dict(self) -> dict:
@@ -169,6 +194,7 @@ class Component:
             "applicable": self.applicable,
             "cells_applicable": self.applicable_cells,
             "cells_scored": self.scored,
+            "cells_set_aside": self.set_aside,
             "value": None if self.value is None else round(self.value, 4),
         }
 
@@ -209,6 +235,7 @@ def component_for(records: tuple[dict, ...], name: str) -> Component:
         scored=len(scored),
         applicable_cells=sum(1 for reading in readings if reading.applies),
         value=(sum(scored) / len(scored)) if scored else None,
+        set_aside=sum(1 for reading in readings if not reading.comparable),
     )
 
 
