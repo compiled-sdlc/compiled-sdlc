@@ -19,7 +19,10 @@ statement: |
   number, so every update puts a person's contact details into a log that is
   shipped off the host and retained.
 
-  Stop the contact details reaching the log.
+  Stop the contact details reaching the log. The update must still be recorded
+  at info level, and that line must identify the owner by the identifier the
+  request was made against --- the one in the request path, which is known
+  whether or not the stored record carries it.
 
 behaviours:
   - id: address-never-logged
@@ -29,7 +32,9 @@ behaviours:
   - id: telephone-never-logged
     statement: No line the update operation writes contains the owner's telephone number.
   - id: still-logs-the-update
-    statement: The update still writes an info line, and that line carries the owner's identifier.
+    statement: >-
+      The update still writes an info line, and that line carries the owner
+      identifier the request was made against.
   - id: response-unchanged
     statement: The update still answers 204 No Content.
 
@@ -44,6 +49,13 @@ boundaries:
     category: architecture
     obligation: must
     statement: The update is still recorded at info level; silence is not the fix.
+  - id: identify-from-the-request
+    category: architecture
+    obligation: must
+    statement: >-
+      The identifier that goes in the line is the one the request names. Reading
+      it back off the stored record makes the line depend on what the store
+      happened to return.
   - id: no-new-dependency
     category: architecture
     obligation: must

@@ -26,6 +26,10 @@ def a_record(run_id: str, status: str = "completed", error_class: str | None = N
         status=status,
         error_class=error_class,
         usage=Usage(input_tokens=10, output_tokens=5),
+        # The real runner records which template the prompt was built from, and
+        # resumability keys on it: a cell run under a superseded template is
+        # pending again rather than silently reused.
+        request={"prompt_template_sha256": runner.load_arm(arm).template_digest()},
     )
 
 
@@ -182,6 +186,21 @@ def test_planning_lists_the_pending_cells_without_running_anything(tmp_path, cap
     assert f"{expected} cells, {expected} pending" in out
     assert "CR-101__baseline__seed1" in out
     assert not list(Path(tmp_path).glob("*/record.json"))
+
+
+def test_a_cell_run_under_a_superseded_template_is_pending_again(tmp_path, requests):
+    """An arm's template is frozen; revising it makes earlier cells incomparable."""
+    cells = runner.matrix(requests[:1], ["baseline"], seeds=1)
+    record = a_record(cells[0].run_id)
+    record.request = {"prompt_template_sha256": "a-template-that-is-no-longer-the-arms"}
+    record.write(tmp_path / record.run_id)
+    assert runner.pending(cells, tmp_path) == cells
+
+
+def test_a_cell_run_under_the_current_template_is_not_run_again(tmp_path, requests):
+    cells = runner.matrix(requests[:1], ["baseline"], seeds=1)
+    a_record(cells[0].run_id).write(tmp_path / cells[0].run_id)
+    assert runner.pending(cells, tmp_path) == []
 
 
 def test_an_unknown_change_request_is_reported(tmp_path, capsys):

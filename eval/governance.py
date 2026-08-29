@@ -80,10 +80,11 @@ def bundle_assembly(record: dict) -> Reading:
     """Whether the bundle this arm owed assembled and validated.
 
     What an arm owes differs: with a plan where one was asked for, without
-    where none was. Scoring every arm against a plan marked the ablation arm
-    down for obeying its own instructions.
+    where none was. Both IR arms owe a bundle, so both are scored on it;
+    gating this on the plan excluded the ablation arm from a component it can
+    take, and marked it down for obeying its own instructions.
     """
-    if not states_a_plan(record):
+    if not produces_ir(record):
         return NOT_APPLICABLE
     return Reading(True, 1.0 if artifacts(record).get("bundle_validated") else 0.0)
 

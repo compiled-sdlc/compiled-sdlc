@@ -107,8 +107,11 @@ class OwnerLoggingAcceptanceTest {
                 .doesNotContain(TELEPHONE);
         }
 
+        // The identifier has to come from the request: the entity has no setter for
+        // its own, so a line built from the stored record reads "null" here and the
+        // check would be unsatisfiable by any correct implementation.
         assertThat(events)
-            .as("an info line must still record the update, identifying the owner")
+            .as("an info line must still record the update, naming the owner from the request")
             .anyMatch(event ->
                 event.getLevel() == Level.INFO
                     && event.getFormattedMessage().contains(Integer.toString(OWNER_ID)));

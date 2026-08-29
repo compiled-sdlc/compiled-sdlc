@@ -82,19 +82,29 @@ def test_a_component_the_runs_did_not_record_is_not_a_zero():
 
 
 def test_an_arm_not_asked_for_a_plan_is_not_marked_down_for_lacking_one():
-    """The ablation arm is complying with its own instructions."""
+    """The ablation arm is complying with its own instructions.
+
+    It has no plan to validate and no transformations to attribute, so those
+    components do not apply to it. It does still assemble a bundle --- intent,
+    constraints, evidence, provenance --- and is scored on that one, because a
+    bundle it owed and did produce is not a governance gap.
+    """
     record = a_record(
         arm="lcir_no_ast",
         arm_artifacts={
             "transformation_plan": "absent",
             "transformation_plan_expected": False,
-            "bundle_validated": False,
+            "bundle_validated": True,
             "bundle_problems": [],
+            "obligations_traced": 1.0,
+            "transformations_attributed": None,
         },
     )
     index = governance.index_for(a_run_set(record), "lcir_no_ast")
     assert index.components["plan_validity"].state == "not observable"
-    assert index.components["bundle_assembly"].state == "not observable"
+    assert index.components["provenance"].state == "not observable"
+    assert index.components["bundle_assembly"].value == 1.0
+    assert index.components["evidence_path"].value == 1.0
 
 
 # --- individual components -------------------------------------------------

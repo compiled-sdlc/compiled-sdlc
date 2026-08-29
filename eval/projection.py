@@ -178,8 +178,13 @@ def bracket_table(projections: list[Projection], balance: float | None) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Project what a run will cost.")
-    parser.add_argument("--change-requests", type=int, required=True)
-    parser.add_argument("--seeds", type=int, required=True)
+    parser.add_argument("--change-requests", type=int)
+    parser.add_argument("--seeds", type=int)
+    parser.add_argument(
+        "--cells",
+        type=int,
+        help="project a cell count directly, for the remainder of a part-run matrix",
+    )
     parser.add_argument("--arms", type=int, default=len(ARMS))
     parser.add_argument("--safety-factor", type=float, default=DEFAULT_SAFETY_FACTOR)
     parser.add_argument(
@@ -202,6 +207,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--runs", type=Path, default=records_module.RUNS_DIR)
     arguments = parser.parse_args(argv)
 
+    if arguments.cells is None and (arguments.change_requests is None or arguments.seeds is None):
+        parser.error("give --cells, or both --change-requests and --seeds")
+
     run_set = records_module.load(arguments.runs)
     if not run_set.counted:
         print(f"no recorded cells under {arguments.runs} to project from")
@@ -210,6 +218,16 @@ def main(argv: list[str] | None = None) -> int:
     observed = observed_costs(run_set, arguments.arm)
 
     def at(multiplier: float) -> Projection:
+        if arguments.cells is not None:
+            return project(
+                arguments.cells,
+                1,
+                observed,
+                arms=1,
+                safety_factor=arguments.safety_factor,
+                reserve=arguments.reserve,
+                difficulty_multiplier=multiplier,
+            )
         return project(
             arguments.change_requests,
             arguments.seeds,
@@ -242,11 +260,15 @@ def main(argv: list[str] | None = None) -> int:
     brackets = tuple(arguments.brackets or DEFAULT_BRACKETS)
     projections = [at(multiplier) for multiplier in brackets]
     reference = projections[0]
-    print(
-        f"matrix          {reference.cells} cells "
-        f"({arguments.change_requests} change requests x {arguments.arms} arms "
-        f"x {arguments.seeds} seed(s))"
+    shape = (
+        "given directly"
+        if arguments.cells is not None
+        else (
+            f"{arguments.change_requests} change requests x {arguments.arms} arms "
+            f"x {arguments.seeds} seed(s)"
+        )
     )
+    print(f"matrix          {reference.cells} cells ({shape})")
     print(
         f"observed        {observed.n} cell(s), median ${observed.median:.4f}, "
         f"q3 ${observed.quartiles[1]:.4f}"

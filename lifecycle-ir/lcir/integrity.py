@@ -45,14 +45,23 @@ def _values(holder: dict, field: str) -> list[str]:
     return []
 
 
-def check_headers(bundle: Bundle) -> list[Problem]:
-    """Every document declares the same version and change request as the manifest."""
+def check_headers(bundle: Bundle, required: tuple[str, ...] = DOCUMENT_KINDS) -> list[Problem]:
+    """Every document declares the same version and change request as the manifest.
+
+    `required` is the set of slots this bundle owes. It defaults to all of them,
+    because a complete bundle carries all of them; a caller that legitimately
+    owes fewer — a run that was never asked to state a transformation plan —
+    says so rather than having the missing slot reported as an error it could
+    not have avoided.
+    """
     problems = []
     version = bundle.manifest.get("ir_version")
     change_request = bundle.manifest.get("change_request")
     for slot in DOCUMENT_KINDS:
         document = bundle.documents.get(slot)
         if document is None:
+            if slot not in required:
+                continue
             problems.append(
                 Problem(
                     "error",
@@ -304,10 +313,15 @@ def _edges(bundle: Bundle, slot: str, collection: str, field: str) -> dict[str, 
     return edges
 
 
-def check_bundle(bundle: Bundle, nodes: dict[str, Node]) -> list[Problem]:
-    """Every referential-integrity check, in reporting order."""
+def check_bundle(
+    bundle: Bundle, nodes: dict[str, Node], required: tuple[str, ...] = DOCUMENT_KINDS
+) -> list[Problem]:
+    """Every referential-integrity check, in reporting order.
+
+    `required` names the document slots this bundle owes; see `check_headers`.
+    """
     return [
-        *check_headers(bundle),
+        *check_headers(bundle, required),
         *check_identifiers(bundle),
         *check_references(bundle, nodes),
         *check_ledger_chain(bundle),

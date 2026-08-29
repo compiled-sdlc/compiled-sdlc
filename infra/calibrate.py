@@ -168,6 +168,25 @@ def main(argv: list[str] | None = None) -> int:
         for finding in result["findings"]:
             print(f"       {finding}")
 
+    # Calibrating a subset must not throw away the rest of the record. Entries
+    # for change requests that were not re-run are carried forward, but only
+    # when they were taken against the same pin — evidence from another commit
+    # describes another application.
+    carried: list[dict] = []
+    if arguments.output.exists():
+        try:
+            existing = json.loads(arguments.output.read_text())
+        except json.JSONDecodeError:
+            existing = {}
+        if existing.get("commit") == locks.target()["target"]["commit"]:
+            rerun = {result["change_request"] for result in results}
+            carried = [
+                entry
+                for entry in existing.get("change_requests", [])
+                if entry["change_request"] not in rerun
+            ]
+    results = sorted(results + carried, key=lambda entry: entry["change_request"])
+
     record = {
         "schema_version": 2,
         "calibrated_on": time.strftime("%Y-%m-%d"),
@@ -180,6 +199,8 @@ def main(argv: list[str] | None = None) -> int:
     }
     arguments.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
     calibrated = sum(1 for result in results if result["calibrated"])
+    if carried:
+        print(f"carried forward {len(carried)} entry(ies) taken against the same pin")
     output = arguments.output.resolve()
     shown = (
         output.relative_to(locks.REPO_ROOT) if output.is_relative_to(locks.REPO_ROOT) else output

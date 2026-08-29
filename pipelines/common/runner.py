@@ -80,9 +80,25 @@ def matrix(requests: list[ChangeRequest], arms: list[str], seeds: int) -> list[C
 
 
 def pending(cells: list[Cell], runs_directory: Path) -> list[Cell]:
-    """The cells with no terminal record yet."""
+    """The cells with no terminal record under the arm's current prompt template.
+
+    Resumability skips a cell that already ran. What it must not do is skip a
+    cell that ran under a *different* prompt: an arm's template is frozen for
+    the experiment and revising it spends an allowance, so a record made before
+    the revision measures a different condition. Such a cell is pending again,
+    and re-running it overwrites the stale record.
+    """
     done = telemetry.completed_cells(runs_directory)
-    return [cell for cell in cells if cell.run_id not in done]
+    remaining = []
+    for cell in cells:
+        record = done.get(cell.run_id)
+        if record is None:
+            remaining.append(cell)
+            continue
+        recorded = (record.get("request") or {}).get("prompt_template_sha256")
+        if recorded != load_arm(cell.arm).template_digest():
+            remaining.append(cell)
+    return remaining
 
 
 def run_cell(

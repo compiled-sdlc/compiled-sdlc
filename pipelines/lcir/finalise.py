@@ -24,7 +24,7 @@ from pipelines.lcir import compile as compiler
 
 sys.path.insert(0, str(locks.REPO_ROOT / "lifecycle-ir"))
 
-from lcir.bundle import load_bundle  # noqa: E402
+from lcir.bundle import DOCUMENT_KINDS, load_bundle  # noqa: E402
 from lcir.coverage import measure  # noqa: E402
 from lcir.integrity import check_bundle  # noqa: E402
 from lcir.schemas import validate_document  # noqa: E402
@@ -172,9 +172,13 @@ def finalise(
     # and made its governance look unobservable rather than merely planless.
     bundle, load_problems = load_bundle(directory)
     problems = [str(problem) for problem in load_problems]
+    # An arm that was never asked to state a plan does not owe that slot, and
+    # reporting it as missing would mark the arm down for obeying its own
+    # instructions. What it does owe is checked exactly as strictly.
+    owed = tuple(slot for slot in DOCUMENT_KINDS if slot != "transformation_plan" or plan_expected)
     problems += [
         str(problem)
-        for problem in check_bundle(bundle, bundle.nodes())
+        for problem in check_bundle(bundle, bundle.nodes(), owed)
         if problem.severity == "error"
     ]
     # Recorded here so the evaluation can read them off the run record: the
