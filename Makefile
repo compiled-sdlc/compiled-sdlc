@@ -23,6 +23,9 @@ help:
 	@echo "bench-validate check the change-request set against its schema and the pin"
 	@echo "calibrate     check every hidden check is red on the pristine pin"
 	@echo "evidence      capture the incident evidence from the running application"
+	@echo "review-sample build the arm-concealed review packet;  review-verify  check it"
+	@echo "review-start/-stop/-abandon ITEM=<item>   time one review;  review-status"
+	@echo "review-ingest reduce the timings to the per-arm figure make eval reads"
 	@echo "bench         run the change-request set across the arms"
 	@echo "bench-plan    list the cells a run would cover, and which are pending"
 	@echo "smoke         prove the executor plumbing with one trivial run"
@@ -67,6 +70,27 @@ calibrate:
 
 evidence:
 	$(UV) run python infra/capture_evidence.py $(EVIDENCE_FLAGS)
+
+review-sample:
+	$(UV) run python -m eval.review sample $(REVIEW_FLAGS)
+
+review-verify:
+	@$(UV) run python -m eval.review verify
+
+review-start:
+	@$(UV) run python -m eval.review start $(ITEM)
+
+review-stop:
+	@$(UV) run python -m eval.review stop $(ITEM)
+
+review-abandon:
+	@$(UV) run python -m eval.review abandon $(ITEM)
+
+review-status:
+	@$(UV) run python -m eval.review status
+
+review-ingest:
+	$(UV) run python -m eval.review ingest
 
 bench-setup:
 	$(UV) run python infra/bench_setup.py $(BENCH_SETUP_FLAGS)

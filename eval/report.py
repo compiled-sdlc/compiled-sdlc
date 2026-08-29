@@ -14,7 +14,7 @@ import argparse
 from pathlib import Path
 
 from eval import figures as figures_module
-from eval import governance, metrics
+from eval import governance, metrics, review
 from eval import records as records_module
 from pipelines.common import locks, telemetry
 
@@ -192,7 +192,13 @@ def main(argv: list[str] | None = None) -> int:
         "--human-minutes",
         type=float,
         default=None,
-        help="measured review time per arm; unmeasured by default",
+        help="one review time for every arm; overrides the measured study",
+    )
+    parser.add_argument(
+        "--review-times",
+        type=Path,
+        default=Path("data") / "review-times.json",
+        help="per-arm review medians from the study, when it has been run",
     )
     parser.add_argument("--no-figures", action="store_true")
     arguments = parser.parse_args(argv)
@@ -202,8 +208,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no runs recorded under {arguments.runs}")
         return 1
 
+    # A measured study gives each arm its own review time; the flag, when given,
+    # applies one figure to every arm and says so. Neither invents a zero.
+    measured = review.human_minutes_by_arm(arguments.review_times)
+    if arguments.human_minutes is not None:
+        measured = {}
     options = {"tools_cost": arguments.tools_cost, "human_minutes": arguments.human_minutes}
-    summaries = metrics.summarise(run_set, **options)
+    summaries = metrics.summarise(run_set, per_arm_human_minutes=measured, **options)
     indices = governance.indices(run_set)
 
     print(banner(run_set))

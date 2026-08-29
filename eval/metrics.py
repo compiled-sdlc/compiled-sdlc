@@ -233,16 +233,30 @@ class ArmSummary:
         }
 
 
-def summarise(run_set: RunSet, **options) -> list[ArmSummary]:
-    """One summary per arm, in the order the arms are declared."""
+def summarise(
+    run_set: RunSet, per_arm_human_minutes: dict[str, float] | None = None, **options
+) -> list[ArmSummary]:
+    """One summary per arm, in the order the arms are declared.
+
+    Review time is per arm when the study has measured it: the whole point of
+    the term is that arms differ in how long their output takes to read, so one
+    figure applied to all of them would assume the answer away.
+    """
+    measured = per_arm_human_minutes or {}
     return [
         ArmSummary(
             arm=arm,
-            salc=salc(run_set, arm, **options),
+            salc=salc(run_set, arm, **{**options, **_review_time(arm, measured, options)}),
             distributions=distributions(run_set.for_arm(arm)),
         )
         for arm in run_set.arms
     ]
+
+
+def _review_time(arm: str, measured: dict[str, float], options: dict) -> dict:
+    if arm in measured:
+        return {"human_minutes": measured[arm]}
+    return {"human_minutes": options.get("human_minutes")}
 
 
 def pareto_frontier(summaries: list[ArmSummary]) -> list[str]:
