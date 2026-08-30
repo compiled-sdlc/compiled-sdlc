@@ -23,6 +23,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Acceptance check for CR-113: a visit is a record of something that happened.
+ *
+ * Passability: Compare the bound date against today in the handler and refuse a later
+ * one. The fixture builds tomorrow from the clock, so the check does not go stale, and
+ * verifies nothing was saved.
+ * Confirmed empirically: 11 of 12 cells passed it in the full run.
  */
 @WebMvcTest(VisitResource.class)
 @ActiveProfiles("test")

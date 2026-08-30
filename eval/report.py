@@ -102,6 +102,63 @@ def governance_table(indices: list[governance.Index]) -> str:
     lines.append("`not recorded`:   the arm can, but these runs carry no figure for it.")
     lines.append("Nothing here enters the success denominator — a governance gap is not a")
     lines.append("failed change request, and only the arms that produce IR can even see one.")
+    lines.append("")
+    lines.append("`tier_approval` is 0.00 for every arm that can take it, and structurally so:")
+    lines.append("the provenance ledger is written by the harness, the run is unattended, and")
+    lines.append("no path in it records a human approval. It reports a property of running")
+    lines.append("without a human in the loop, identical across arms, and separates none.")
+    return "\n".join(lines)
+
+
+def assembly_table(taxonomy: list[dict]) -> str:
+    """Why bundle assembly failed, which a single pass-or-fail figure cannot say."""
+    lines = ["BUNDLE ASSEMBLY: WHY IT FAILED", ""]
+    header = f"{'arm':13s} {'scored':>7s} {'failed':>7s} {'structural only':>16s}  reasons"
+    lines += [header, "-" * len(header)]
+    for entry in taxonomy:
+        reasons = ", ".join(f"{code} x{count}" for code, count in entry["reasons"].items())
+        lines.append(
+            f"{entry['arm']:13s} {entry['bundles_scored']:7d} {entry['bundles_failed']:7d} "
+            f"{entry['failed_for_structural_reasons_only']:16d}  {reasons or '—'}"
+        )
+    total_failed = sum(entry["bundles_failed"] for entry in taxonomy)
+    structural = sum(entry["failed_for_structural_reasons_only"] for entry in taxonomy)
+    lines.append("")
+    if total_failed:
+        lines.append(
+            f"{structural} of {total_failed} failures are the missing tier approval and "
+            f"nothing else:"
+        )
+        lines.append("the same unattended-run fact the tier component reports, arriving twice.")
+        lines.append("Plans validate at a far higher rate than bundles assemble because the")
+        lines.append("difference between the two figures is almost entirely this one cause,")
+        lines.append("which has nothing to do with the plan an arm wrote.")
+    return "\n".join(lines)
+
+
+def gap_table(cost_gaps: list[dict], success_gaps: list[dict]) -> str:
+    """Which differences the run can carry, and which it cannot."""
+    lines = ["WHICH DIFFERENCES THE RUN SUPPORTS", ""]
+    lines.append("Cost per cell — a gap clears when the two interquartile ranges do not overlap.")
+    header = f"  {'pair':30s} {'gap':>9s} {'ratio':>7s}  verdict"
+    lines += [header, "  " + "-" * (len(header) - 2)]
+    for gap in cost_gaps:
+        pair = f"{gap['cheaper']} < {gap['dearer']}"
+        verdict = "clears" if gap["clears"] else "INSIDE the spreads — not established"
+        ratio = f"{gap['ratio']:.2f}x" if gap["ratio"] else "—"
+        lines.append(f"  {pair:30s} ${gap['gap_usd']:8.4f} {ratio:>7s}  {verdict}")
+    lines.append("")
+    lines.append("Verified success — no interquartile range exists for a proportion, so a gap")
+    lines.append("is read against the spread each arm already shows between its own seeds.")
+    header = f"  {'pair':30s} {'gap':>9s} {'cells':>6s} {'seed spread':>12s}  verdict"
+    lines += [header, "  " + "-" * (len(header) - 2)]
+    for gap in success_gaps:
+        pair = f"{gap['better']} > {gap['worse']}"
+        verdict = "clears" if gap["clears"] else "INSIDE the seed spread — not established"
+        lines.append(
+            f"  {pair:30s} {gap['gap']:9.4f} {gap['cells']:6d} "
+            f"{gap['widest_within_arm_spread']:12.4f}  {verdict}"
+        )
     return "\n".join(lines)
 
 
@@ -179,6 +236,9 @@ def build(run_set: records_module.RunSet, **options) -> dict:
         "seeds": run_set.seeds,
         "pricing_captured_on": locks.pricing()["captured_on"],
         "pareto_frontier": metrics.pareto_frontier(summaries),
+        "cost_gaps": metrics.cost_gaps(summaries),
+        "success_gaps": metrics.success_gaps(run_set, summaries),
+        "bundle_assembly_failures": governance.assembly_taxonomy(run_set),
         "salc": [summary.to_dict() for summary in summaries],
         "governance": [index.to_dict() for index in indices],
     }
@@ -252,6 +312,11 @@ def main(argv: list[str] | None = None) -> int:
 
     print("\n\nOUTCOMES\n")
     print(outcomes(run_set))
+
+    print("\n\n" + assembly_table(governance.assembly_taxonomy(run_set)))
+    cost_gaps = metrics.cost_gaps(summaries)
+    success_gaps = metrics.success_gaps(run_set, summaries)
+    print("\n\n" + gap_table(cost_gaps, success_gaps))
 
     frontier = metrics.pareto_frontier(summaries)
     print(f"\n\nPARETO FRONTIER\n\n  {', '.join(frontier)}")

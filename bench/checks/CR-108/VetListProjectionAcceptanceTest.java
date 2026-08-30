@@ -21,6 +21,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Acceptance check for CR-108: the list is ordered by name and each element reports how
  * many specialties its vet has, with every existing field untouched.
+ *
+ * Passability: Build a projection in the web layer from the entities the repository
+ * returns, ordering and counting there. The fixture asserts only on JSON, so any shape
+ * that renders the same fields passes and the entity stays untouched.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(VetResource.class)
 @ActiveProfiles("test")

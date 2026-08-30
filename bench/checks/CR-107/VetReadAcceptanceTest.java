@@ -20,6 +20,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Acceptance check for CR-107: one vet can be read by identifier.
+ *
+ * Passability: Add a read handler over the repository's existing findById. The fixture
+ * stubs that method, which the pin has, so nothing the agent adds needs to be named by
+ * the check.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(VetResource.class)
 @ActiveProfiles("test")

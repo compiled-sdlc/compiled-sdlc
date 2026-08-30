@@ -30,6 +30,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Acceptance check for CR-109: an owner's contact details never reach the log, and the
  * update is still recorded.
+ *
+ * Passability: Log the identifier the request was made against, taken from the path.
+ * The entity offers no setter for its own id, so the fixture's owner has none; reading
+ * it from the record logs a null and the request says where the identifier comes from.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(OwnerResource.class)
 @ActiveProfiles("test")

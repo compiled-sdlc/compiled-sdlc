@@ -24,6 +24,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Acceptance check for CR-105: the batch visit lookup is bounded at one hundred pets.
+ *
+ * Passability: Count the identifiers in the handler and refuse above the limit before
+ * the repository is asked anything. The fixture sends one over the limit and verifies
+ * the repository was never called, so refusing after querying does not pass.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(VisitResource.class)
 @ActiveProfiles("test")

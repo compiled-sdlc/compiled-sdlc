@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import json
 import random
+import re
 import secrets
 import sys
 import time
@@ -39,6 +40,13 @@ OUTPUT_NAME = "review-times.json"
 #: An item still open after this long is treated as abandoned. Without a ceiling
 #: a single forgotten item dominates every median.
 CEILING_MINUTES = 45.0
+
+#: Agents sometimes write the change request's identifier into a comment or a
+#: test name. It does not name an arm, but it tells the reviewer they have seen
+#: this change before under another arm, which invites the comparison the
+#: concealment exists to prevent.
+IDENTIFIER = re.compile(r"CR-\d{3,}")
+REDACTED = "CR-XXX"
 
 
 class ReviewError(RuntimeError):
@@ -96,7 +104,7 @@ def application_diff(patch: Path) -> str:
             target = line.split(" b/", 1)[-1].strip()
             keeping = not target.startswith(f"{ARTIFACT_DIRECTORY}/")
         if keeping:
-            kept.append(line)
+            kept.append(IDENTIFIER.sub(REDACTED, line))
     return "".join(kept)
 
 
@@ -127,7 +135,34 @@ def request_sheet(request: changerequests.ChangeRequest) -> str:
     return "\n".join(lines) + "\n"
 
 
-def sample(runs: Path, out: Path, seed: int) -> list[Item]:
+def stratified(requests: dict, identifiers: list[str], wanted: int, seed: int) -> list[str]:
+    """A subset of the change requests, spread across the difficulty taxonomy.
+
+    Reviewing every arm on every change request is eighty items, which is not one
+    sitting. Cutting it down by taste would choose the sample after seeing the
+    runs, so the rule is stated instead: take the difficulty classes in turn and
+    draw one change request from each, in an order fixed by the seed, until the
+    quota is filled. Whatever is drawn keeps all four arms, so the design stays
+    fully crossed and an arm is never compared across different work.
+    """
+    by_difficulty: dict[str, list[str]] = {}
+    for identifier in identifiers:
+        by_difficulty.setdefault(requests[identifier].difficulty, []).append(identifier)
+    shuffler = random.Random(seed)
+    for pool in by_difficulty.values():
+        shuffler.shuffle(pool)
+    classes = sorted(by_difficulty)
+    drawn: list[str] = []
+    while len(drawn) < wanted and any(by_difficulty[name] for name in classes):
+        for name in classes:
+            if len(drawn) >= wanted:
+                break
+            if by_difficulty[name]:
+                drawn.append(by_difficulty[name].pop())
+    return sorted(drawn)
+
+
+def sample(runs: Path, out: Path, seed: int, change_requests: int | None = None) -> list[Item]:
     """Build the review packet and the key that undoes it."""
     run_set = records_module.load(runs)
     if not run_set.counted:
@@ -136,6 +171,10 @@ def sample(runs: Path, out: Path, seed: int) -> list[Item]:
 
     salt = secrets.token_hex(8)
     chosen = choose(run_set)
+    if change_requests is not None:
+        available = sorted({record["change_request"] for record in chosen})
+        keep = set(stratified(requests, available, change_requests, seed))
+        chosen = [record for record in chosen if record["change_request"] in keep]
     items = [
         Item(
             item=digest(record["run_id"], salt),
@@ -162,6 +201,7 @@ def sample(runs: Path, out: Path, seed: int) -> list[Item]:
             {
                 "salt": salt,
                 "sampling_seed": seed,
+                "change_requests": sorted({item.change_request for item in items}),
                 "ceiling_minutes": CEILING_MINUTES,
                 "items": [
                     {
@@ -179,10 +219,58 @@ def sample(runs: Path, out: Path, seed: int) -> list[Item]:
         )
         + "\n"
     )
-    (out / "ORDER.txt").write_text(
-        "Review these in order, one at a time.\n\n" + "\n".join(item.item for item in items) + "\n"
-    )
+    (out / "HOW-TO-REVIEW.md").write_text(instructions(items))
     return items
+
+
+def instructions(items: list[Item]) -> str:
+    """The sheet the reviewer works from. Everything needed, nothing that gives an arm away."""
+    listing = "\n".join(f"{index + 1:2d}. {item.item}" for index, item in enumerate(items))
+    return f"""\
+# Review timing study --- {len(items)} items
+
+You are timing how long it takes to decide whether a change is fit to merge.
+Not whether it is correct: that is already settled elsewhere, and your verdict
+is not what is being collected. Only the time.
+
+Each item is a directory under `packet/` holding two files:
+
+- `request.md` --- the change that was asked for.
+- `change.patch` --- what was done to the application.
+
+The items are shuffled and named opaquely. Several are the same change request
+solved a second time; you are not meant to be able to tell which, and matching
+them up is the one thing that would spoil the result.
+
+## One item at a time
+
+    make review-start ITEM=<item>
+    ... read request.md, then change.patch, and decide ...
+    make review-stop  ITEM=<item>
+
+`make review-status` says what is open and how many are left.
+
+## The rules that make the numbers mean anything
+
+- **One item open at a time.** Starting a second is refused.
+- **Interrupted? Abandon it,** with `make review-abandon ITEM=<item>`. It leaves
+  the sample. Do not pause and come back: a wall clock that includes a coffee
+  break is not review time.
+- **Anything open past {CEILING_MINUTES:g} minutes is abandoned automatically.**
+- **No second readings.** Re-opening a finished item is refused.
+- Work through the list in order. Take a break between items, never inside one.
+
+## When you are done
+
+    make review-ingest
+
+That writes the per-arm medians the evaluation reads. Do not open `key.json`
+until then --- it is what tells the two halves of the study apart.
+
+## The order
+
+{listing}
+"""
 
 
 # --- concealment --------------------------------------------------------------
@@ -342,6 +430,12 @@ def main(argv: list[str] | None = None) -> int:
     sampler = subparsers.add_parser("sample", help="build the packet and its key")
     sampler.add_argument("--runs", type=Path, default=records_module.RUNS_DIR)
     sampler.add_argument("--seed", type=int, default=1, help="shuffles the review order")
+    sampler.add_argument(
+        "--change-requests",
+        type=int,
+        help="review this many change requests, drawn across the difficulty classes; "
+        "every arm is kept for each, so the item count is four times this",
+    )
     subparsers.add_parser("verify", help="check the packet gives no arm away")
     for name, help_text in (
         ("start", "open an item"),
@@ -363,10 +457,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if arguments.command == "sample":
-            items = sample(arguments.runs, out, arguments.seed)
+            items = sample(arguments.runs, out, arguments.seed, arguments.change_requests)
             problems = verify(out)
             print(f"sampled {len(items)} items into {out / PACKET_NAME}")
             print(f"key written to {out / KEY_NAME} — do not open it before reviewing")
+            print(f"the reviewer's sheet is {out / 'HOW-TO-REVIEW.md'}")
             if problems:
                 print("\nCONCEALMENT FAILED:", file=sys.stderr)
                 for problem in problems:

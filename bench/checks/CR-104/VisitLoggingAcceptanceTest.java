@@ -30,6 +30,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Acceptance check for CR-104: the creation log line identifies the visit, carries no
  * identity hash, and never carries the description.
+ *
+ * Passability: Format the log call in the create handler from the visit's identifier
+ * and pet rather than the whole record. The fixture attaches a log appender and reads
+ * the formatted message, so what is logged is observable without touching the entity.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(VisitResource.class)
 @ActiveProfiles("test")

@@ -24,6 +24,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Acceptance check for CR-115: the list is answered conditionally, and its tag follows
  * the list rather than the request.
+ *
+ * Passability: Derive a tag from the list in the resource and compare it with the
+ * request's If-None-Match. The fixture reads the tag off one response and replays it,
+ * then changes the stubbed data to show the tag follows the list rather than the
+ * request.
+ * Confirmed empirically: 11 of 12 cells passed it in the full run.
  */
 @WebMvcTest(VetResource.class)
 @ActiveProfiles("test")

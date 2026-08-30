@@ -25,6 +25,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Acceptance check for CR-114: a pet named twice is asked for once, and the order the
  * caller gave survives.
+ *
+ * Passability: Collapse the identifiers before the repository call, preserving first-
+ * seen order. The fixture captures the collection actually passed, so collapsing the
+ * answer instead of the question does not pass, and an unordered set fails the order
+ * assertion.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(VisitResource.class)
 @ActiveProfiles("test")

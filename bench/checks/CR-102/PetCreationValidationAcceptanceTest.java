@@ -23,7 +23,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Acceptance check for CR-102: pet creation applies the constraints its request body declares.
+ * Acceptance check for CR-102: pet creation applies the constraints its request body
+ * declares.
+ *
+ * Passability: Apply the constraints already declared on the request record by
+ * annotating the create parameter for validation. The fixture posts an empty name,
+ * which the record's own size constraint rejects once it is applied.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(PetResource.class)
 @ActiveProfiles("test")

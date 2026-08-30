@@ -24,6 +24,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Acceptance check for CR-101: the pet named in the request path is the pet updated.
+ *
+ * Passability: Take the pet from the path variable instead of the body's id in the
+ * update handler. One parameter; the fixture drives PUT /owners/1/pets/2 with a body
+ * naming a different pet, so both readings are distinguishable over MockMvc.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(PetResource.class)
 @ActiveProfiles("test")

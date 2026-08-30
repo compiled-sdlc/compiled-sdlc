@@ -32,6 +32,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * The repository is stubbed on both routes an implementation might take --- the whole
  * list, or a page of it --- so the check tests the bound the caller sees rather than
  * the way it was arrived at.
+ *
+ * Passability: Read the page and size parameters, cap the size, and slice. The fixture
+ * stubs both routes an implementation might take --- the whole list, and a page of it
+ * --- so it tests the bound the caller sees rather than the method the agent chose.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(OwnerResource.class)
 @ActiveProfiles("test")

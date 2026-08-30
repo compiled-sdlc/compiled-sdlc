@@ -314,3 +314,78 @@ def frontier_caveats(summaries: list[ArmSummary], frontier: list[str]) -> list[s
                     f"both interquartile ranges: the ordering is not established."
                 )
     return caveats
+
+
+def cost_gaps(summaries: list["ArmSummary"]) -> list[dict]:
+    """Every pairwise cost gap, and whether it clears both arms' spreads.
+
+    A median is a point; two medians differing by less than the spread around
+    them order nothing. Every pair is reported either way, so a gap that does
+    not clear cannot be quietly omitted while one that does is kept.
+    """
+    gaps = []
+    for index, first in enumerate(summaries):
+        for second in summaries[index + 1 :]:
+            left = first.distributions["cost_usd"]
+            right = second.distributions["cost_usd"]
+            cheaper, dearer = (first, second) if left.median <= right.median else (second, first)
+            gaps.append(
+                {
+                    "cheaper": cheaper.arm,
+                    "dearer": dearer.arm,
+                    "gap_usd": round(abs(left.median - right.median), 4),
+                    "ratio": round(
+                        max(left.median, right.median) / min(left.median, right.median), 2
+                    )
+                    if min(left.median, right.median)
+                    else None,
+                    "clears": not overlapping(left, right),
+                }
+            )
+    return sorted(gaps, key=lambda gap: -gap["gap_usd"])
+
+
+def success_by_seed(run_set: RunSet, arm: str) -> dict[int, float]:
+    """One success rate per seed, which is the arm's own run-to-run spread."""
+    by_seed: dict[int, list[bool]] = {}
+    for record in run_set.for_arm(arm):
+        by_seed.setdefault(record["seed"], []).append(bool(record.get("verified_success")))
+    return {
+        seed: sum(outcomes) / len(outcomes)
+        for seed, outcomes in sorted(by_seed.items())
+        if outcomes
+    }
+
+
+def success_gaps(run_set: RunSet, summaries: list["ArmSummary"]) -> list[dict]:
+    """Every pairwise success gap, against the spread each arm shows across seeds.
+
+    There is no interquartile range for a proportion, so the comparison is made
+    against the variation the arms already show between seeds of the same
+    condition. A gap smaller than that is a gap the run cannot resolve.
+    """
+    spreads = {}
+    for summary in summaries:
+        rates = list(success_by_seed(run_set, summary.arm).values())
+        spreads[summary.arm] = (max(rates) - min(rates)) if len(rates) > 1 else 0.0
+    gaps = []
+    for index, first in enumerate(summaries):
+        for second in summaries[index + 1 :]:
+            gap = abs(first.salc.success_rate - second.salc.success_rate)
+            widest = max(spreads[first.arm], spreads[second.arm])
+            better, worse = (
+                (first, second)
+                if first.salc.success_rate >= second.salc.success_rate
+                else (second, first)
+            )
+            gaps.append(
+                {
+                    "better": better.arm,
+                    "worse": worse.arm,
+                    "gap": round(gap, 4),
+                    "cells": abs(better.salc.verified_count - worse.salc.verified_count),
+                    "widest_within_arm_spread": round(widest, 4),
+                    "clears": gap > widest,
+                }
+            )
+    return sorted(gaps, key=lambda gap: -gap["gap"])

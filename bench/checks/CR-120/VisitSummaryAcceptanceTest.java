@@ -31,6 +31,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * The whole web layer is loaded rather than one named class, so it does not matter
  * which class the summary is added to.
+ *
+ * Passability: Derive the summary from the single batch read the repository already
+ * offers, one entry per pet asked about. The fixture stubs findByPetIdIn, which the pin
+ * has, and drives the new endpoint by URL, so no method the agent adds is named;
+ * loading the whole web slice means it does not matter which class the handler lands
+ * in.
+ * Confirmed empirically: 10 of 12 cells passed it in the full run.
  */
 @WebMvcTest
 @ActiveProfiles("test")

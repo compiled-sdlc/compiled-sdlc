@@ -24,6 +24,10 @@ import static org.mockito.ArgumentMatchers.anyList;
 
 /**
  * Acceptance check for CR-118, gateway side: an owner with no pets costs no call.
+ *
+ * Passability: Skip the visits call when the owner has no pets. The fixture mocks the
+ * visits client and asserts it was never called, so the saving is observable without a
+ * running service.
  */
 @WebFluxTest(controllers = ApiGatewayController.class)
 @Import({ReactiveResilience4JAutoConfiguration.class, CircuitBreakerConfiguration.class})

@@ -22,6 +22,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Acceptance check for CR-106: an absent owner is 404, and the success response keeps
  * the shape every existing caller reads.
+ *
+ * Passability: Make the read handler answer a missing owner as not found rather than an
+ * empty body. The fixture stubs findById empty; the module already has an exception
+ * mapped to that status.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(OwnerResource.class)
 @ActiveProfiles("test")

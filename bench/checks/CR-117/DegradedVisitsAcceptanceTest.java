@@ -24,6 +24,12 @@ import reactor.core.publisher.Mono;
 /**
  * Acceptance check for CR-117: the marker follows what actually happened to the visits,
  * and the body is untouched either way.
+ *
+ * Passability: Carry the fallback's outcome out of the reactive chain and set it as a
+ * response header. The fixture drives the slice with the visits client failing and
+ * succeeding in turn and asserts the header both ways, so a marker set where the
+ * fallback is declared rather than where it fires fails the healthy case.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebFluxTest(controllers = ApiGatewayController.class)
 @Import({ReactiveResilience4JAutoConfiguration.class, CircuitBreakerConfiguration.class})

@@ -23,6 +23,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * The identifiers are read back off the requests the client actually made, however it
  * chose to carry them --- one parameter holding a list, or a parameter per pet.
+ *
+ * Passability: Partition the identifiers in the client and merge the answers. The
+ * fixture points the real client at a stub server and reads the requests it actually
+ * made, so no method the agent adds needs naming and the merge is observable in the
+ * returned object.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 class VisitsBatchingAcceptanceTest {
 

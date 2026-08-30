@@ -27,6 +27,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Acceptance check for CR-111: neither writing path saves a pet whose type does not
  * exist, and both answer a bad request rather than a missing resource.
+ *
+ * Passability: Make the type lookup in the shared save step refuse rather than skip.
+ * The fixture stubs the lookup empty and verifies the repository never saved, which
+ * also catches a repair made to only one of the two writing paths.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(PetResource.class)
 @ActiveProfiles("test")

@@ -1,5 +1,5 @@
 {
-  "calibrated_on": "2026-08-29",
+  "calibrated_on": "2026-08-30",
   "change_requests": [
     {
       "acceptance": {
@@ -23,7 +23,7 @@
       },
       "calibrated": true,
       "change_request": "CR-101",
-      "duration_seconds": 13.9,
+      "duration_seconds": 20.4,
       "findings": [],
       "invariants": [
         {
@@ -78,7 +78,7 @@
       },
       "calibrated": true,
       "change_request": "CR-102",
-      "duration_seconds": 14.5,
+      "duration_seconds": 14.6,
       "findings": [],
       "invariants": [
         {
@@ -133,7 +133,7 @@
       },
       "calibrated": true,
       "change_request": "CR-103",
-      "duration_seconds": 14.4,
+      "duration_seconds": 14.5,
       "findings": [],
       "invariants": [
         {
@@ -193,7 +193,7 @@
       },
       "calibrated": true,
       "change_request": "CR-104",
-      "duration_seconds": 14.3,
+      "duration_seconds": 14.0,
       "findings": [],
       "invariants": [
         {
@@ -253,7 +253,7 @@
       },
       "calibrated": true,
       "change_request": "CR-105",
-      "duration_seconds": 13.8,
+      "duration_seconds": 14.2,
       "findings": [],
       "invariants": [
         {
@@ -313,7 +313,7 @@
       },
       "calibrated": true,
       "change_request": "CR-106",
-      "duration_seconds": 14.5,
+      "duration_seconds": 13.9,
       "findings": [],
       "invariants": [
         {
@@ -368,7 +368,7 @@
       },
       "calibrated": true,
       "change_request": "CR-107",
-      "duration_seconds": 14.2,
+      "duration_seconds": 13.6,
       "findings": [],
       "invariants": [
         {
@@ -423,7 +423,7 @@
       },
       "calibrated": true,
       "change_request": "CR-108",
-      "duration_seconds": 14.3,
+      "duration_seconds": 13.7,
       "findings": [],
       "invariants": [
         {
@@ -478,7 +478,7 @@
       },
       "calibrated": true,
       "change_request": "CR-109",
-      "duration_seconds": 13.9,
+      "duration_seconds": 15.2,
       "findings": [],
       "invariants": [
         {
@@ -538,7 +538,7 @@
       },
       "calibrated": true,
       "change_request": "CR-110",
-      "duration_seconds": 14.8,
+      "duration_seconds": 14.4,
       "findings": [],
       "invariants": [
         {
@@ -593,7 +593,7 @@
       },
       "calibrated": true,
       "change_request": "CR-111",
-      "duration_seconds": 14.1,
+      "duration_seconds": 14.6,
       "findings": [],
       "invariants": [
         {
@@ -648,7 +648,7 @@
       },
       "calibrated": true,
       "change_request": "CR-112",
-      "duration_seconds": 14.1,
+      "duration_seconds": 14.3,
       "findings": [],
       "invariants": [
         {
@@ -703,7 +703,7 @@
       },
       "calibrated": true,
       "change_request": "CR-113",
-      "duration_seconds": 13.9,
+      "duration_seconds": 14.3,
       "findings": [],
       "invariants": [
         {
@@ -758,7 +758,7 @@
       },
       "calibrated": true,
       "change_request": "CR-114",
-      "duration_seconds": 14.4,
+      "duration_seconds": 14.1,
       "findings": [],
       "invariants": [
         {
@@ -813,7 +813,7 @@
       },
       "calibrated": true,
       "change_request": "CR-115",
-      "duration_seconds": 14.1,
+      "duration_seconds": 14.7,
       "findings": [],
       "invariants": [
         {
@@ -868,7 +868,7 @@
       },
       "calibrated": true,
       "change_request": "CR-116",
-      "duration_seconds": 17.2,
+      "duration_seconds": 18.1,
       "findings": [],
       "invariants": [
         {
@@ -918,7 +918,7 @@
       },
       "calibrated": true,
       "change_request": "CR-117",
-      "duration_seconds": 21.5,
+      "duration_seconds": 17.6,
       "findings": [],
       "invariants": [
         {
@@ -984,7 +984,7 @@
       },
       "calibrated": true,
       "change_request": "CR-118",
-      "duration_seconds": 30.6,
+      "duration_seconds": 30.8,
       "findings": [],
       "invariants": [
         {
@@ -1041,7 +1041,7 @@
       },
       "calibrated": true,
       "change_request": "CR-119",
-      "duration_seconds": 13.9,
+      "duration_seconds": 14.2,
       "findings": [],
       "invariants": [
         {
@@ -1107,7 +1107,7 @@
       },
       "calibrated": true,
       "change_request": "CR-120",
-      "duration_seconds": 31.2,
+      "duration_seconds": 29.6,
       "findings": [],
       "invariants": [
         {

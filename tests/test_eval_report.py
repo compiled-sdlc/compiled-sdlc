@@ -152,7 +152,10 @@ def test_the_governance_table_never_prints_a_zero_for_an_unmeasurable_arm():
     run_set = a_run_set(a_record(arm="baseline"))
     rendered = report.governance_table(governance.indices(run_set))
     assert "not observable" in rendered
-    assert "0.00" not in rendered
+    # The arm's own row, not the notes under the table: an unmeasurable
+    # component is never shown as a score, whatever the notes go on to explain.
+    row = next(line for line in rendered.splitlines() if line.startswith("baseline"))
+    assert "0.00" not in row
 
 
 def test_the_outcomes_say_which_cells_were_charged_and_which_excluded():

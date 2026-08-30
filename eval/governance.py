@@ -22,6 +22,8 @@ checks and violated no `must` invariant is a verified success even if its bundle
 never assembled.
 """
 
+import re
+from collections import Counter
 from dataclasses import dataclass
 
 from eval.records import RunSet
@@ -246,3 +248,56 @@ def index_for(run_set: RunSet, arm: str) -> Index:
 
 def indices(run_set: RunSet) -> list[Index]:
     return [index_for(run_set, arm) for arm in run_set.arms]
+
+
+#: A bundle problem is reported as "error: [code] where: what". The code is the
+#: part worth counting; the rest names one cell's particulars.
+PROBLEM_CODE = re.compile(r"\[([a-z][a-z-]*)\]")
+
+#: Reasons a bundle can fail for something no arm chose. An unattended run has
+#: no human in it, so an approval the risk class demands is never recorded --- by
+#: the design of the experiment, not by anything an arm did.
+STRUCTURAL_CODES = frozenset({"tier-approval-missing"})
+
+
+def assembly_failures(run_set: RunSet, arm: str) -> dict:
+    """Why bundle assembly failed for this arm, by reason.
+
+    Assembly is a single pass or fail, and a low figure invites the reading that
+    the arm assembled a poor bundle. Counting the reasons separates the ones an
+    arm could have avoided from the ones nobody could.
+    """
+    reasons: Counter = Counter()
+    failed = structural_only = 0
+    scored = 0
+    for record in run_set.for_arm(arm):
+        found = artifacts(record)
+        if not produces_ir(record) or not comparable(record):
+            continue
+        scored += 1
+        if found.get("bundle_validated"):
+            continue
+        failed += 1
+        codes = {
+            match.group(1)
+            for problem in found.get("bundle_problems") or []
+            if (match := PROBLEM_CODE.search(problem))
+        }
+        reasons.update(codes)
+        if codes and codes <= STRUCTURAL_CODES:
+            structural_only += 1
+    return {
+        "arm": arm,
+        "bundles_scored": scored,
+        "bundles_failed": failed,
+        "failed_for_structural_reasons_only": structural_only,
+        "reasons": dict(reasons.most_common()),
+    }
+
+
+def assembly_taxonomy(run_set: RunSet) -> list[dict]:
+    return [
+        assembly_failures(run_set, arm)
+        for arm in run_set.arms
+        if assembly_failures(run_set, arm)["bundles_scored"]
+    ]

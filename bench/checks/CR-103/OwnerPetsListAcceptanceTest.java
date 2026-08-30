@@ -23,6 +23,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Acceptance check for CR-103: an owner's pets can be listed in one request.
+ *
+ * Passability: Add a read handler on the owner resource returning the owner's pets. The
+ * fixture stubs the repository's findById, which the pin already has, and reads the
+ * array off the response.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(PetResource.class)
 @ActiveProfiles("test")

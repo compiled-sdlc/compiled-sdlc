@@ -25,6 +25,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * The mapper is stubbed to do what the real one does, so an implementation that
  * still maps through it and one that does not are both answered the same way.
+ *
+ * Passability: Keep a map on the resource from key to the request and its answer. The
+ * fixture replays the same header twice and then a different body under the same key,
+ * all through MockMvc, and counts saves on the mocked repository.
+ * Confirmed empirically: 11 of 12 cells passed it in the full run.
  */
 @WebMvcTest(OwnerResource.class)
 @ActiveProfiles("test")

@@ -32,6 +32,12 @@ import reactor.core.publisher.Mono;
  * traffic the gateway actually sends rather than a mock of a method it might not have.
  * The whole web layer is loaded rather than one named class, so it does not matter
  * which class the route is added to.
+ *
+ * Passability: Add a route that asks the customers service for the owner and the visits
+ * service for a summary of its pets. The fixture mocks the customers client and points
+ * the real visits client at a stub server, so whatever client method the agent adds is
+ * exercised over HTTP and never named by the check.
+ * Confirmed empirically: 10 of 12 cells passed it in the full run.
  */
 @WebFluxTest
 @Import({ReactiveResilience4JAutoConfiguration.class, CircuitBreakerConfiguration.class})

@@ -22,6 +22,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Acceptance check for CR-119: the identifier belongs to the database, not the caller.
+ *
+ * Passability: Bind a request record in the web layer instead of the persistence
+ * entity, and refuse a body carrying an identifier. The fixture posts such a body and
+ * verifies nothing was saved; the entity stays untouched, which is what closes the one-
+ * line repairs.
+ * Confirmed empirically: 12 of 12 cells passed it in the full run.
  */
 @WebMvcTest(VisitResource.class)
 @ActiveProfiles("test")
