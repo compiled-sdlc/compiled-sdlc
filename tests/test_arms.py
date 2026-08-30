@@ -192,6 +192,29 @@ def test_every_arm_has_the_same_prompt_allowance():
         assert entry.iterations_used <= entry.allowance
 
 
+def test_a_cross_service_request_names_every_module_it_may_touch(tmp_path):
+    """Naming only the first forbids the change the request asks for.
+
+    The framing tells the agent to make the change in the named module and to
+    leave every other module alone. With one module named, an agent on a
+    cross-service change was instructed away from half its own task and then
+    scored on hidden checks that run there.
+    """
+    request = next(item for item in cr.load_all() if len(item.modules) > 1)
+    for name in ARMS:
+        prompt = load_arm(name).prompt(request, tmp_path)
+        for module_path in request.module_paths:
+            assert module_path in prompt, f"{name} does not name {module_path}"
+
+
+def test_a_single_module_prompt_is_unchanged_by_that(tmp_path):
+    """One module joined with nothing is that module: those cells stay comparable."""
+    request = next(item for item in cr.load_all() if len(item.modules) == 1)
+    for name in ARMS:
+        prompt = load_arm(name).prompt(request, tmp_path)
+        assert f"Make the change in {request.module_path}." in prompt
+
+
 def test_the_recorded_template_digests_match_the_arms():
     """The ledger records the template as frozen; a quiet edit shows up here."""
     recorded = arms_module.allowances()

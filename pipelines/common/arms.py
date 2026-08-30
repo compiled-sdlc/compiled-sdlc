@@ -132,7 +132,12 @@ class BaseArm:
         """The instruction the agent is given. Built from the brief, never the ground truth."""
         return TASK_FRAMING.format(
             application=locks.target()["target"]["name"],
-            module=request.module_path,
+            # Every module the request may touch. Naming only the first told an
+            # agent on a cross-service change to leave the other module alone,
+            # and then scored it on checks that run there. The substitution
+            # changes; the template does not, so a single-module prompt is
+            # byte-for-byte what it was and its cells stay comparable.
+            module=",".join(request.module_paths),
             presentation=self.presentation(request, workspace).strip(),
             editing=self.editing.strip(),
         )

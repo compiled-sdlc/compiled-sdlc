@@ -1,5 +1,5 @@
 {
-  "calibrated_on": "2026-08-28",
+  "calibrated_on": "2026-08-29",
   "change_requests": [
     {
       "acceptance": {
@@ -984,7 +984,7 @@
       },
       "calibrated": true,
       "change_request": "CR-118",
-      "duration_seconds": 32.6,
+      "duration_seconds": 30.6,
       "findings": [],
       "invariants": [
         {

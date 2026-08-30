@@ -22,6 +22,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Acceptance check for CR-118, visits side: a lookup with nothing to look up is refused
  * before the database is troubled.
+ *
+ * Passability, verified against the pin on 2026-08-29: filter the identifiers that
+ * name no pet before testing for emptiness --- a parameter of separators binds to a
+ * list of nulls, not to an empty list, so an isEmpty() check alone lets it through ---
+ * then answer 400. Six lines in the resource; the fixture reaches it over MockMvc and
+ * no new API is named, so the check compiles against the unmodified pin.
  */
 @WebMvcTest(VisitResource.class)
 @ActiveProfiles("test")
