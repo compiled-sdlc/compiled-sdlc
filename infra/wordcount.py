@@ -47,7 +47,34 @@ DROPPED = (
     "documentclass",
     "cite",
 )
-DROPPED_WITH_ARGUMENT = re.compile(r"\\(?:" + "|".join(DROPPED) + r")\*?(?:\[[^\]]*\])?\{[^{}]*\}")
+DROPPED_WITH_ARGUMENT = re.compile(r"\\(?:" + "|".join(DROPPED) + r")\*?(?:\[[^\]]*\])?\{")
+
+
+def drop_with_argument(text: str) -> str:
+    """Remove a dropped command and its whole argument, braces and all.
+
+    Matching the argument with a brace-free pattern silently left the contents
+    of any command that contained braces --- a \\todo holding an inline
+    equation, say --- in the count, so placeholder text was billed against a
+    budget it will never occupy. The argument is scanned for its balancing
+    brace instead.
+    """
+    out = []
+    position = 0
+    while (match := DROPPED_WITH_ARGUMENT.search(text, position)) is not None:
+        out.append(text[position : match.start()])
+        depth = 1
+        index = match.end()
+        while index < len(text) and depth:
+            if text[index] == "{":
+                depth += 1
+            elif text[index] == "}":
+                depth -= 1
+            index += 1
+        position = index
+    out.append(text[position:])
+    return " ".join(out)
+
 
 # Commands whose argument is text that does appear: a section heading is words
 # on the page, so the command goes and the argument stays.
@@ -88,10 +115,8 @@ def prose_words(text: str) -> int:
     for name in FLOAT_ENVIRONMENTS + STRIP_ENVIRONMENTS:
         text = strip_environment(text, name)
     text = MATH.sub(" x ", text)
-    for _ in range(3):  # nested cases, e.g. a label inside a dropped command
-        text, replaced = DROPPED_WITH_ARGUMENT.subn(" ", text)
-        if not replaced:
-            break
+    # Balanced-brace scanning already removes nested cases in one pass.
+    text = drop_with_argument(text)
     text = BARE_COMMAND.sub(" ", text)
     text = BRACES.sub(" ", text)
     return len([word for word in text.split() if any(ch.isalnum() for ch in word)])

@@ -125,6 +125,52 @@ def build(summary: dict) -> list[str]:
         ]
     lines.append(macro("runTotalSpend", f"{total_spend:.2f}"))
 
+    # Relative interquartile range: the spread as a fraction of the median, which
+    # is what makes two arms at different price points comparable on variability.
+    for entry in summary["salc"]:
+        name = ARM_MACRO.get(entry["arm"])
+        spread = entry["distributions"]["cost_usd"]
+        median = spread.get("median") or 0.0
+        # Older summaries carry the quartiles without the range between them.
+        iqr = spread.get("iqr", spread.get("q3", 0.0) - spread.get("q1", 0.0))
+        if name and median:
+            lines.append(macro(f"relIqr{name}", f"{iqr / median:.2f}"))
+
+    lines += ["", "% --- which differences the run supports ---"]
+    for gap in summary.get("cost_gaps", []):
+        pair = f"{ARM_MACRO.get(gap['cheaper'], '')}Vs{ARM_MACRO.get(gap['dearer'], '')}"
+        if "Vs" in pair and pair != "Vs":
+            lines += [
+                macro(f"costGap{pair}", money(gap["gap_usd"])),
+                macro(f"costRatio{pair}", f"{gap['ratio']:.1f}" if gap["ratio"] else "--"),
+                macro(f"costClears{pair}", "true" if gap["clears"] else "false"),
+            ]
+    success = summary.get("success_gaps", [])
+    established = [gap for gap in success if gap["clears"]]
+    widest_cells = max((gap["cells"] for gap in success), default=0)
+    seed_spread = max((gap["widest_within_arm_spread"] for gap in success), default=0.0)
+    lines += [
+        macro("successGapsEstablished", str(len(established))),
+        macro("successGapWidest", str(widest_cells)),
+        macro("successSeedSpread", f"{seed_spread * 100:.0f}"),
+    ]
+
+    lines += ["", "% --- why bundle assembly failed ---"]
+    taxonomy = summary.get("bundle_assembly_failures", [])
+    failed = sum(entry["bundles_failed"] for entry in taxonomy)
+    structural = sum(entry["failed_for_structural_reasons_only"] for entry in taxonomy)
+    tier_cells = 0
+    for index in summary["governance"]:
+        for component in index["components"]:
+            if component["component"] == "tier_approval":
+                tier_cells = max(tier_cells, component.get("cells_applicable", 0))
+    lines += [
+        macro("assemblyFailures", str(failed)),
+        macro("assemblyStructural", str(structural)),
+        macro("assemblyOther", str(failed - structural)),
+        macro("tierCells", str(tier_cells)),
+    ]
+
     lines += ["", "% --- governance completeness, per arm and component ---"]
     for index in summary["governance"]:
         name = ARM_MACRO.get(index["arm"])
