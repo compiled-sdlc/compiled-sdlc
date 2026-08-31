@@ -155,6 +155,50 @@ def build(summary: dict) -> list[str]:
         macro("successSeedSpread", f"{seed_spread * 100:.0f}"),
     ]
 
+    review = summary.get("review") or {}
+    if review.get("measured"):
+        lines += ["", "% --- the review study and the rate sweep ---"]
+        rates = review["rates"]
+        rate_macro = {"0": "Zero", "60": "Sixty", "120": "OneTwenty", "180": "OneEighty"}
+        for arm, entry in review["arms"].items():
+            name = ARM_MACRO.get(arm)
+            if not name or entry["median_minutes"] is None:
+                continue
+            lines.append(macro(f"reviewMinutes{name}", f"{entry['median_minutes']:.2f}"))
+        for rate in rates:
+            suffix = rate_macro.get(rate, rate)
+            for arm, value in review["salc_by_rate"][rate].items():
+                name = ARM_MACRO.get(arm)
+                if name and value is not None:
+                    lines.append(macro(f"salc{name}At{suffix}", money(value)))
+            order = review["ordering_by_rate"][rate]
+            spelled = " $<$ ".join(arm.replace("_", "\\_") for arm in order)
+            lines.append(macro(f"orderingAt{suffix}", spelled))
+        changes = review["ordering_changes_at_rate"]
+        lines.append(macro("orderingChangesAt", changes if changes else "--"))
+        lines.append(macro("reviewRates", ", ".join(f"\\${rate}" for rate in rates if rate != "0")))
+        # The rates themselves, so prose never types one either.
+        for rate in rates:
+            lines.append(macro(f"reviewRate{rate_macro.get(rate, rate)}", rate))
+        # How far the review term outweighs model cost once it is priced at all.
+        shares = []
+        for entry in summary["salc"]:
+            minutes = review["arms"].get(entry["arm"], {}).get("median_minutes")
+            if minutes and entry["model_cost_usd"]:
+                human = 120.0 * (minutes * entry["cells_counted"] / 60.0)
+                shares.append(human / entry["model_cost_usd"])
+        if shares:
+            lines += [
+                macro("humanOverModelLow", f"{min(shares):.0f}"),
+                macro("humanOverModelHigh", f"{max(shares):.0f}"),
+            ]
+        study = review.get("study") or {}
+        lines += [
+            macro("reviewItems", str(study.get("items_sampled", "--"))),
+            macro("reviewItemsPerArm", str(study.get("items_per_arm", "--"))),
+            macro("reviewReviewers", str(study.get("reviewers", "--"))),
+        ]
+
     lines += ["", "% --- why bundle assembly failed ---"]
     taxonomy = summary.get("bundle_assembly_failures", [])
     failed = sum(entry["bundles_failed"] for entry in taxonomy)

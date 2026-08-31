@@ -203,21 +203,96 @@ def outcomes(run_set: records_module.RunSet) -> str:
 
 
 def sensitivity_table(run_set: records_module.RunSet, **options) -> str:
+    """SALC as the review rate rises, each arm weighted by its own measured time."""
     rates = metrics.DEFAULT_RATES
-    header = f"{'arm':13s} " + " ".join(f"{f'@{rate:g}/h':>12s}" for rate in rates)
+    measured = options.pop("per_arm_human_minutes", None) or {}
+    header = f"{'arm':13s} {'min/review':>11s} " + " ".join(
+        f"{f'@{rate:g}/h':>12s}" for rate in rates
+    )
     lines = [header, "-" * len(header)]
+    orderings = {rate: [] for rate in rates}
     for arm in run_set.arms:
-        swept = metrics.sensitivity(run_set, arm, rates, **options)
+        per_arm = {**options}
+        if arm in measured:
+            per_arm["human_minutes"] = measured[arm]
+        swept = metrics.sensitivity(run_set, arm, rates, **per_arm)
+        for rate, value in swept.items():
+            if value is not None:
+                orderings[rate].append((value, arm))
+        shown = f"{measured[arm]:11.2f}" if arm in measured else f"{'--':>11s}"
         cells = [
             f"{value:12.4f}" if value is not None else f"{'undefined':>12s}"
             for value in swept.values()
         ]
-        lines.append(f"{arm:13s} " + " ".join(cells))
+        lines.append(f"{arm:13s} {shown} " + " ".join(cells))
     lines.append("")
-    lines.append("Review time is not measured, so the weighted term contributes nothing and")
-    lines.append("every rate gives the same answer. The metric currently rests on model cost")
-    lines.append("alone; measuring review time on a sample is what would change that.")
+    if not measured:
+        lines.append("Review time is not measured, so the weighted term contributes nothing and")
+        lines.append("every rate gives the same answer. The metric currently rests on model")
+        lines.append("cost alone; measuring review time on a sample is what would change that.")
+        return "\n".join(lines)
+
+    lines.append("Review time is the per-cell median, counted once per cell, because the")
+    lines.append("numerator sums what every attempt consumed. Cheapest arm first:")
+    for rate in rates:
+        order = " < ".join(arm for _, arm in sorted(orderings[rate]))
+        lines.append(f"  @{rate:g}/h  {order}")
+    baseline_rate = rates[0]
+    for rate in rates[1:]:
+        if [a for _, a in sorted(orderings[rate])] != [
+            a for _, a in sorted(orderings[baseline_rate])
+        ]:
+            lines.append("")
+            lines.append(f"The ordering is not stable in the rate: it changes by @{rate:g}/h.")
+            break
     return "\n".join(lines)
+
+
+def review_block(run_set: records_module.RunSet, options: dict) -> dict:
+    """The review study as the manuscript needs it: times, the sweep, the ordering."""
+    measured = options.get("per_arm_human_minutes") or {}
+    rates = metrics.DEFAULT_RATES
+    arms = {}
+    sweep: dict[str, dict[str, float | None]] = {f"{rate:g}": {} for rate in rates}
+    for arm in run_set.arms:
+        per_arm = {k: v for k, v in options.items() if k != "per_arm_human_minutes"}
+        if arm in measured:
+            per_arm["human_minutes"] = measured[arm]
+        swept = metrics.sensitivity(run_set, arm, rates, **per_arm)
+        arms[arm] = {"median_minutes": measured.get(arm)}
+        for rate, value in swept.items():
+            sweep[f"{rate:g}"][arm] = None if value is None else round(value, 4)
+    ordering = {
+        rate: [arm for _, arm in sorted((v, a) for a, v in values.items() if v is not None)]
+        for rate, values in sweep.items()
+    }
+    first = ordering[f"{rates[0]:g}"]
+    changes_at = next(
+        (rate for rate in list(ordering)[1:] if ordering[rate] != first),
+        None,
+    )
+    study = {}
+    times = Path("data") / "review-times.json"
+    if times.exists():
+        import json as _json
+
+        raw = _json.loads(times.read_text())
+        per_arm = {entry["items_reviewed"] for entry in raw.get("arms", {}).values()}
+        study = {
+            "items_sampled": raw.get("items_sampled"),
+            "reviewers": raw.get("reviewers"),
+            "items_per_arm": per_arm.pop() if len(per_arm) == 1 else None,
+            "abandoned": len(raw.get("abandoned") or []),
+        }
+    return {
+        "measured": bool(measured),
+        "study": study,
+        "arms": arms,
+        "rates": [f"{rate:g}" for rate in rates],
+        "salc_by_rate": sweep,
+        "ordering_by_rate": ordering,
+        "ordering_changes_at_rate": changes_at,
+    }
 
 
 def build(run_set: records_module.RunSet, **options) -> dict:
@@ -239,6 +314,7 @@ def build(run_set: records_module.RunSet, **options) -> dict:
         "cost_gaps": metrics.cost_gaps(summaries),
         "success_gaps": metrics.success_gaps(run_set, summaries),
         "bundle_assembly_failures": governance.assembly_taxonomy(run_set),
+        "review": review_block(run_set, options),
         "salc": [summary.to_dict() for summary in summaries],
         "governance": [index.to_dict() for index in indices],
     }
@@ -277,8 +353,12 @@ def main(argv: list[str] | None = None) -> int:
     measured = review.human_minutes_by_arm(arguments.review_times)
     if arguments.human_minutes is not None:
         measured = {}
-    options = {"tools_cost": arguments.tools_cost, "human_minutes": arguments.human_minutes}
-    summaries = metrics.summarise(run_set, per_arm_human_minutes=measured, **options)
+    options = {
+        "tools_cost": arguments.tools_cost,
+        "human_minutes": arguments.human_minutes,
+        "per_arm_human_minutes": measured,
+    }
+    summaries = metrics.summarise(run_set, **options)
     indices = governance.indices(run_set)
 
     print(banner(run_set))

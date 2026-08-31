@@ -284,6 +284,8 @@ def test_the_manuscript_quotes_no_hand_typed_measurement():
     body = re.sub(r"\\begin\{table\}.*?\\end\{table\}", " ", body, flags=re.DOTALL)
     body = re.sub(r"\\(cite|ref|label|input|graphicspath)\{[^}]*\}", " ", body)
     body = re.sub(r"\\todo\{.*?\}", " ", body, flags=re.DOTALL)
+    # The author's affiliation is not a measurement.
+    body = re.sub(r"\\thanks\{.*?\}", " ", body, flags=re.DOTALL)
     # What is left may carry numbers only where they are part of a cited
     # result, a section number, or an equation.
     suspicious = [

@@ -30,7 +30,7 @@ from eval.records import RunSet
 # Rates to sweep the human-time term over, in currency per hour. Only meaningful
 # once review time is measured; until then every sweep gives the same answer,
 # which is itself worth showing.
-DEFAULT_RATES = (0.0, 50.0, 100.0, 200.0)
+DEFAULT_RATES = (0.0, 60.0, 120.0, 180.0)
 
 
 @dataclass(frozen=True)
@@ -125,11 +125,25 @@ class Salc:
     rate_per_hour: float
 
     @property
+    def review_minutes(self) -> float | None:
+        """Review time over the same attempts the model cost is summed over.
+
+        `human_minutes` is the median time to review one change. The numerator
+        of Equation SALC sums what a change consumed across every attempt, so
+        the review term has to be summed the same way: one review per cell.
+        Weighting a single review against sixty cells of model cost would
+        compare an hour of one reviewer with a month of one machine.
+        """
+        if self.human_minutes is None:
+            return None
+        return self.human_minutes * self.cells
+
+    @property
     def human_cost(self) -> float:
         """The weighted review term. Zero while review time is unmeasured."""
-        if self.human_minutes is None:
+        if self.review_minutes is None:
             return 0.0
-        return self.rate_per_hour * (self.human_minutes / 60.0)
+        return self.rate_per_hour * (self.review_minutes / 60.0)
 
     @property
     def total_cost(self) -> float:
@@ -156,6 +170,7 @@ class Salc:
             "model_cost_usd": round(self.model_cost, 6),
             "tools_cost_usd": round(self.tools_cost, 6),
             "human_minutes": self.human_minutes,
+            "review_minutes_total": self.review_minutes,
             "rate_per_hour": self.rate_per_hour,
             "human_cost_usd": round(self.human_cost, 6),
             "total_cost_usd": round(self.total_cost, 6),
