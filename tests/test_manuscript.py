@@ -282,10 +282,23 @@ def test_the_manuscript_quotes_no_hand_typed_measurement():
     text = (REPO / "manuscript" / "main.tex").read_text()
     body = wordcount.body(text)
     body = re.sub(r"\\begin\{table\}.*?\\end\{table\}", " ", body, flags=re.DOTALL)
-    body = re.sub(r"\\(cite|ref|label|input|graphicspath)\{[^}]*\}", " ", body)
+    body = re.sub(r"\\(cite|ref|label|input|graphicspath|url)\{[^}]*\}", " ", body)
     body = re.sub(r"\\todo\{.*?\}", " ", body, flags=re.DOTALL)
-    # The author's affiliation is not a measurement.
-    body = re.sub(r"\\thanks\{.*?\}", " ", body, flags=re.DOTALL)
+    # The author block is an address, not a measurement, and its \thanks nests
+    # braces, so it is removed by scanning for the balancing brace.
+    start = body.find("\\author{")
+    if start >= 0:
+        depth, index = 0, start + len("\\author")
+        while index < len(body):
+            if body[index] == "{":
+                depth += 1
+            elif body[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    index += 1
+                    break
+            index += 1
+        body = body[:start] + " " + body[index:]
 
     # What is left may carry numbers only where they are part of a cited
     # result, a section number, or an equation.
@@ -319,8 +332,11 @@ def test_the_manuscript_quotes_no_hand_typed_measurement():
         "17",
         "50",
         "20",
-        # "1.0" names parity for a ratio, not a measurement.
+        # Identifiers rather than figures: parity for a ratio, the archived
+        # release, and the licence the archive is under.
         "1.0",
+        "1.0.0",
+        "2.0",
     }
     unexplained = [token for token in suspicious if bare(token) not in quoted_from_literature]
     assert unexplained == [], f"hand-typed numbers in the manuscript: {unexplained}"

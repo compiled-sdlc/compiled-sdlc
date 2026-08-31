@@ -214,7 +214,7 @@ recorded run data:
 make bench-setup   # fetch the target application at its pin, then build and start it
 make calibrate     # check every hidden check is red before the change and green after
 make bench-plan    # list the cells a run would cover, and which are still pending
-make bench         # execute the change-request set across the four arms
+make bench         # execute the change-request set across the four protocols
 make eval          # recompute every metric and figure from runs/
 make project CRS=20 SEEDS=3   # price a run before launching it
 ```
@@ -226,6 +226,16 @@ lands in untracked directories: the repository carries the recipe, not the
 product.
 
 Run telemetry is written as JSONL under `runs/`, which is not tracked.
+
+## Citing this artifact
+
+Archived at Zenodo. The DOI below is the concept DOI: it always resolves to the
+latest version, and each release also has its own.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22215075.svg)](https://doi.org/10.5281/zenodo.22215075)
+
+> Syed Moid. *compiled-sdlc/compiled-sdlc: v1.0.0 — The Compiled SDLC*.
+> Zenodo, 2026. https://doi.org/10.5281/zenodo.22215075
 
 ## License
 
