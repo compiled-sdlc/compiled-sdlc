@@ -199,6 +199,72 @@ def build(summary: dict) -> list[str]:
             macro("reviewReviewers", str(study.get("reviewers", "--"))),
         ]
 
+    boot = summary.get("bootstrap") or {}
+    if boot:
+        lines += ["", "% --- clustered bootstrap: effect sizes with intervals ---"]
+        lines += [
+            macro("bootResamples", f"{boot['resamples']:,}".replace(",", "\\,")),
+            macro("bootSeed", str(boot["seed"])),
+        ]
+        for arm, entry in boot["arms"].items():
+            name = ARM_MACRO.get(arm)
+            if not name:
+                continue
+            lines.append(macro(f"protocol{name}", entry["protocol"]))
+            for key, prefix in (
+                ("mean_cost", "cost"),
+                ("adjusted_cost", "adj"),
+                ("success_rate", "rate"),
+            ):
+                interval = entry.get(key)
+                if not interval:
+                    continue
+                digits = 3 if key == "success_rate" else 2
+                lines += [
+                    macro(f"{prefix}Point{name}", f"{interval['point']:.{digits}f}"),
+                    macro(f"{prefix}Low{name}", f"{interval['ci_low']:.{digits}f}"),
+                    macro(f"{prefix}High{name}", f"{interval['ci_high']:.{digits}f}"),
+                ]
+            spread = entry.get("within_task_spread") or {}
+            if spread.get("median_ratio"):
+                lines += [
+                    macro(f"withinTask{name}", f"{spread['median_ratio']:.2f}"),
+                    macro(f"withinTaskMax{name}", f"{spread['max_ratio']:.2f}"),
+                ]
+        separated = 0
+        for pair in boot["pairs"]:
+            top = ARM_MACRO.get(pair["dearer"])
+            bottom = ARM_MACRO.get(pair["cheaper"])
+            if not top or not bottom:
+                continue
+            key = f"{top}Vs{bottom}"
+            for field, prefix in (("cost_ratio", "ratioCost"), ("adjusted_ratio", "ratioAdj")):
+                interval = pair.get(field)
+                if interval:
+                    lines += [
+                        macro(f"{prefix}{key}", f"{interval['point']:.2f}"),
+                        macro(f"{prefix}Low{key}", f"{interval['ci_low']:.2f}"),
+                        macro(f"{prefix}High{key}", f"{interval['ci_high']:.2f}"),
+                    ]
+            if pair.get("success_separated"):
+                separated += 1
+        lines.append(macro("successSeparatedPairs", str(separated)))
+        lines.append(macro("bootPairs", str(len(boot["pairs"]))))
+
+    # What the minified protocol actually achieved on the prompt, as opposed to
+    # what "compression" would suggest.
+    prompts = {}
+    for entry in summary["salc"]:
+        name = ARM_MACRO.get(entry["arm"])
+        median = entry["distributions"].get("input_tokens", {}).get("median")
+        if name and median:
+            prompts[name] = median
+            lines.append(macro(f"promptTokens{name}", whole(median)))
+    if prompts.get("Compressed") and prompts.get("Baseline"):
+        ratio = prompts["Compressed"] / prompts["Baseline"]
+        lines.append(macro("promptRetention", f"{ratio:.2f}"))
+        lines.append(macro("promptReduction", f"{(1 - ratio) * 100:.0f}"))
+
     lines += ["", "% --- why bundle assembly failed ---"]
     taxonomy = summary.get("bundle_assembly_failures", [])
     failed = sum(entry["bundles_failed"] for entry in taxonomy)

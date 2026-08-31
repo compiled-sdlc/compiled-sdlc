@@ -73,19 +73,34 @@ every cross-reference the IR defines and what the validator enforces;
 `lifecycle-ir/examples/change-request/CR-014/` is one change request expressed
 fully in IR, exercising all of them.
 
-## The four arms
+## The four protocols
 
-An arm decides how a change request is represented, and nothing else. The model,
-the tool set, the three budgets, the workspace, the verification and the record
-are identical for all four, so a difference in what they cost is a difference
-their representation has to account for.
+A protocol decides how a change request is represented and what the agent must
+produce alongside the change, and nothing else. The model, the tool set, the
+three budgets, the workspace, the verification and the record are identical for
+all four, so a difference in what they cost is a difference the protocol has to
+account for.
 
-| Arm | The change request arrives as | Edits are |
-|---|---|---|
-| `baseline` | Prose in the prompt | Free-form, with the build output as feedback |
-| `lcir` | A typed Lifecycle IR bundle in the workspace | Addressed operations, stated as a transformation plan before they are made |
-| `lcir_no_ast` | The same typed bundle | Free-form |
-| `compressed` | One minified line, keys abbreviated | Free-form |
+The four form a 2x2 — the request is prose or typed, and an addressed
+transformation plan is demanded or not. The paper names them by what they vary;
+the code keeps the original identifiers, and this is the mapping.
+
+| Protocol (paper) | Identifier (code) | Request | Plan demanded |
+|---|---|---|---|
+| prose-free | `baseline` | Prose in the prompt | No |
+| prose-min | `compressed` | One minified line, keys abbreviated | No |
+| typed-free | `lcir_no_ast` | A typed Lifecycle IR bundle | No |
+| typed-plan | `lcir` | The same typed bundle | Yes — addressed operations, stated before they are made |
+| _prose-plan_ | — | Prose in the prompt | Yes — **designed, costed, not run** |
+
+`prose-plan` is the missing cell of the factorial. It would separate the plan
+obligation from the typing on the prose side, as `typed-free` does on the typed
+side. It was not run because the remaining budget did not cover it, so every
+claim about the plan obligation rests on the typed side alone.
+
+**Repetitions, not seeds.** A cell is run three times under identical
+conditions. Nothing passes a sampling seed to the model; the record's `seed`
+field is the repetition index, and the paper calls it an independent repetition.
 
 `lcir_no_ast` is the ablation: it separates what typing the intent buys from
 what structuring the edits buys. Every arm is given the same content — the same

@@ -228,7 +228,7 @@ def test_a_figure_and_a_table_each_cost_a_block_of_the_budget(tmp_path):
     counts = wordcount.count_floats(wordcount.body(A_PAPER))
     assert counts["figure"] == 1
     assert counts["table"] == 1
-    assert wordcount.WORDS_PER_FLOAT == 250
+    assert wordcount.WORDS_PER_FLOAT == 300
 
 
 def test_the_budget_is_reported_against_the_limit(tmp_path, capsys):
@@ -236,14 +236,14 @@ def test_the_budget_is_reported_against_the_limit(tmp_path, capsys):
     path.write_text(A_PAPER)
     assert wordcount.report(path) == 0
     out = capsys.readouterr().out
-    assert "of 4,200" in out
+    assert "of 6,000" in out
     assert "to spare" in out
     assert "1 \\todo{} still to fill" in out
 
 
 def test_going_over_the_budget_is_a_failure(tmp_path, capsys):
     path = tmp_path / "main.tex"
-    path.write_text(A_PAPER.replace("\\section{One}", "\\section{One}\n" + "word " * 5000))
+    path.write_text(A_PAPER.replace("\\section{One}", "\\section{One}\n" + "word " * 7000))
     assert wordcount.report(path) == 1
     assert "OVER" in capsys.readouterr().out
 
@@ -252,9 +252,9 @@ def test_too_many_references_is_a_failure(tmp_path, capsys):
     path = tmp_path / "main.tex"
     path.write_text(A_PAPER)
     bibliography = tmp_path / "references.bib"
-    bibliography.write_text("\n".join(f"@article{{key{n},\n}}" for n in range(20)))
+    bibliography.write_text("\n".join(f"@article{{key{n},\n}}" for n in range(21)))
     assert wordcount.report(path, bibliography) == 1
-    assert "of 15" in capsys.readouterr().out
+    assert "OVER" in capsys.readouterr().out
 
 
 def test_the_counter_reports_a_missing_file(capsys):
@@ -286,17 +286,41 @@ def test_the_manuscript_quotes_no_hand_typed_measurement():
     body = re.sub(r"\\todo\{.*?\}", " ", body, flags=re.DOTALL)
     # The author's affiliation is not a measurement.
     body = re.sub(r"\\thanks\{.*?\}", " ", body, flags=re.DOTALL)
+
     # What is left may carry numbers only where they are part of a cited
     # result, a section number, or an equation.
+    def bare(token: str) -> str:
+        """The number itself, without the punctuation or markup around it."""
+        return token.rstrip(",.").removesuffix("%").removesuffix("\\").rstrip(",.")
+
+    # Section numbers, small counts and the factorial's dimensions are structure,
+    # not measurement.
+    structural = {"1", "2", "4", "5", "25"}
     suspicious = [
         token
         for token in re.findall(r"(?<![\\{a-zA-Z])\d[\d.,]*\\?%?", body)
-        if token not in {"1", "2", "4", "5", "25"}
+        if bare(token) not in structural
     ]
-    quoted_from_literature = {"1.2", "5.0", "12", "38", "27.9", "1.8", "2025"}
-    unexplained = [
-        token
-        for token in suspicious
-        if token.removesuffix("%").removesuffix("\\") not in quoted_from_literature
-    ]
+    quoted_from_literature = {
+        "1.2",
+        "5.0",
+        "12",
+        "38",
+        "27.9",
+        "1.8",
+        "2025",
+        # AgentDiet's reported reductions, the log-format study's cost/token
+        # figures, and the retention levels the compression literature studies.
+        "39.9",
+        "59.7",
+        "21.1",
+        "35.9",
+        "67",
+        "17",
+        "50",
+        "20",
+        # "1.0" names parity for a ratio, not a measurement.
+        "1.0",
+    }
+    unexplained = [token for token in suspicious if bare(token) not in quoted_from_literature]
     assert unexplained == [], f"hand-typed numbers in the manuscript: {unexplained}"

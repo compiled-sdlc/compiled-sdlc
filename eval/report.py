@@ -14,7 +14,7 @@ import argparse
 from pathlib import Path
 
 from eval import figures as figures_module
-from eval import governance, metrics, review
+from eval import governance, metrics, review, stats
 from eval import records as records_module
 from pipelines.common import locks, telemetry
 
@@ -295,6 +295,59 @@ def review_block(run_set: records_module.RunSet, options: dict) -> dict:
     }
 
 
+PAIRS = (
+    ("lcir", "baseline"),
+    ("lcir", "compressed"),
+    ("lcir", "lcir_no_ast"),
+    ("lcir_no_ast", "baseline"),
+    ("compressed", "baseline"),
+)
+
+
+def bootstrap_block(run_set: records_module.RunSet) -> dict:
+    """Effect sizes with intervals, resampled over change requests."""
+    per_arm = {}
+    for arm in run_set.arms:
+        cost = stats.clustered_bootstrap(run_set, stats.mean_cost(arm))
+        adjusted = stats.clustered_bootstrap(run_set, stats.adjusted_cost(arm))
+        rate = stats.success_rate_interval(run_set, arm)
+        per_arm[arm] = {
+            "protocol": records_module.PROTOCOL.get(arm, arm),
+            "mean_cost": cost.to_dict() if cost else None,
+            "adjusted_cost": adjusted.to_dict() if adjusted else None,
+            "success_rate": rate.to_dict() if rate else None,
+            "within_task_spread": stats.within_task_spread(run_set, arm),
+        }
+    pairs = []
+    for dearer, cheaper in PAIRS:
+        if dearer not in run_set.arms or cheaper not in run_set.arms:
+            continue
+        cost = stats.clustered_bootstrap(run_set, stats.cost_ratio(dearer, cheaper))
+        adjusted = stats.clustered_bootstrap(run_set, stats.adjusted_cost_ratio(dearer, cheaper))
+        success = stats.clustered_bootstrap(
+            run_set, stats.paired_success_difference(cheaper, dearer)
+        )
+        pairs.append(
+            {
+                "dearer": dearer,
+                "cheaper": cheaper,
+                "cost_ratio": cost.to_dict() if cost else None,
+                "cost_ratio_separated": bool(cost and cost.excludes_one),
+                "adjusted_ratio": adjusted.to_dict() if adjusted else None,
+                "adjusted_ratio_separated": bool(adjusted and adjusted.excludes_one),
+                "paired_success_difference": success.to_dict() if success else None,
+                "success_separated": bool(success and success.excludes_zero),
+            }
+        )
+    return {
+        "method": "change-request-clustered bootstrap, percentile interval",
+        "resamples": stats.RESAMPLES,
+        "seed": stats.BOOTSTRAP_SEED,
+        "arms": per_arm,
+        "pairs": pairs,
+    }
+
+
 def build(run_set: records_module.RunSet, **options) -> dict:
     """Everything the report says, as data."""
     summaries = metrics.summarise(run_set, **options)
@@ -315,6 +368,7 @@ def build(run_set: records_module.RunSet, **options) -> dict:
         "success_gaps": metrics.success_gaps(run_set, summaries),
         "bundle_assembly_failures": governance.assembly_taxonomy(run_set),
         "review": review_block(run_set, options),
+        "bootstrap": bootstrap_block(run_set),
         "salc": [summary.to_dict() for summary in summaries],
         "governance": [index.to_dict() for index in indices],
     }
@@ -367,8 +421,8 @@ def main(argv: list[str] | None = None) -> int:
         f"{len(run_set.counted)} counted, {len(run_set.excluded)} excluded"
     )
     print(
-        f"{len(run_set.change_requests)} change request(s), {len(run_set.arms)} arm(s), "
-        f"{run_set.seeds} seed(s) per cell"
+        f"{len(run_set.change_requests)} change request(s), {len(run_set.arms)} protocol(s), "
+        f"{run_set.seeds} independent repetition(s) per cell"
     )
     print(f"prices captured {locks.pricing()['captured_on']}; cost recomputed from tokens")
 

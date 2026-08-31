@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
-"""Count the manuscript against its word budget.
+"""Count the manuscript against the venue's own rule.
 
-The venue counts each figure and each table as a fixed number of words, so a
-paper that fits on prose alone can still be over. This counts both, and says how
-much room is left.
+The target venue is IEEE Computer. Its author information states that a feature
+article must not exceed 6,000 words and should not fall below 4,500, that the
+count *includes the bibliography and the author biographies*, that each figure
+and each table counts as 300 words, and that no more than 20 references may be
+cited. An article over the limit may be rejected without review, so the count
+that matters is the strict one.
 
-It is a close estimate, not the venue's own count: it strips LaTeX markup,
-skips the preamble, the bibliography and comments, and counts what is left.
+That rule differs from the IEEE Software rule this project previously assumed
+(4,200 words, 250 per float, 15 references, bibliography excluded), and the two
+disagree in both directions: Computer allows far more prose but bills the
+bibliography and charges more per float. Both are reported, the venue's own rule
+first, because the fallback venue still has to be satisfiable.
+
+It remains a close estimate rather than the venue's count: it strips LaTeX
+markup, skips the preamble and comments, and counts what is left.
 
     python infra/wordcount.py manuscript/main.tex
 """
@@ -16,9 +25,26 @@ import re
 import sys
 from pathlib import Path
 
-WORD_BUDGET = 4200
-WORDS_PER_FLOAT = 250
-REFERENCE_LIMIT = 15
+# IEEE Computer, feature article. Checked against the venue's author
+# information on 2026-08-31.
+WORD_BUDGET = 6000
+WORD_MINIMUM = 4500
+WORDS_PER_FLOAT = 300
+REFERENCE_LIMIT = 20
+TITLE_WORD_LIMIT = 9
+ABSTRACT_WORD_LIMIT = 150
+#: The bibliography and the author biographies count toward Computer's limit.
+COUNTS_BIBLIOGRAPHY = True
+
+# IEEE Software, the fallback venue, counts differently. Reported alongside so a
+# manuscript that fits one is never assumed to fit the other.
+FALLBACK = {
+    "name": "IEEE Software",
+    "budget": 4200,
+    "per_float": 250,
+    "references": 15,
+    "counts_bibliography": False,
+}
 
 FLOAT_ENVIRONMENTS = ("figure", "figure*", "table", "table*")
 
@@ -122,37 +148,101 @@ def prose_words(text: str) -> int:
     return len([word for word in text.split() if any(ch.isalnum() for ch in word)])
 
 
+def title_words(text: str) -> int:
+    match = re.search(r"\\title\{(.*?)\}\s*\n", text, re.DOTALL)
+    if not match:
+        return 0
+    cleaned = BARE_COMMAND.sub(" ", match.group(1))
+    return len([w for w in BRACES.sub(" ", cleaned).split() if any(c.isalnum() for c in w)])
+
+
+def abstract_words(text: str) -> int:
+    match = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", text, re.DOTALL)
+    return prose_words(match.group(1)) if match else 0
+
+
+def bibliography_words(bibliography: Path | None) -> int:
+    """What a rendered reference list costs, when the venue bills it.
+
+    IEEE Computer counts the bibliography against the limit. A .bib file is not
+    the rendered list, so this counts the fields that reach the page --- author,
+    title, venue, year --- and ignores the keys and the markup that do not.
+    """
+    if not bibliography or not bibliography.exists():
+        return 0
+    total = 0
+    for field in re.findall(
+        r"\b(?:author|title|journal|booktitle|publisher|series|note)\s*=\s*[{\"](.+?)[}\"]\s*,",
+        bibliography.read_text(),
+        re.DOTALL,
+    ):
+        total += len([w for w in BRACES.sub(" ", field).split() if any(c.isalnum() for c in w)])
+    return total
+
+
 def report(path: Path, bibliography: Path | None = None) -> int:
     text = path.read_text()
     inner = body(text)
     floats = count_floats(inner)
     float_total = sum(floats.values())
     prose = prose_words(inner)
-    counted = prose + float_total * WORDS_PER_FLOAT
+    abstract = abstract_words(text)
+    bib = bibliography_words(bibliography)
 
     references = count_references(text)
     if bibliography and bibliography.exists():
         references = max(references, len(re.findall(r"^@\w+\{", bibliography.read_text(), re.M)))
 
-    print(f"words        {prose:,} of prose")
+    # The venue's own rule, which is the one that decides whether it is read.
+    counted = prose + abstract + bib + float_total * WORDS_PER_FLOAT
+    print("IEEE Computer (feature article) — the venue's rule")
+    print(f"  prose            {prose:,}")
+    print(f"  abstract         {abstract:,}")
+    print(f"  bibliography     {bib:,}  (Computer counts it)")
     for name, count in floats.items():
         if count:
-            print(
-                f"             {count} x {name} at {WORDS_PER_FLOAT} words = "
-                f"{count * WORDS_PER_FLOAT:,}"
-            )
-    print(f"counted      {counted:,} of {WORD_BUDGET:,}", end="")
-    if counted <= WORD_BUDGET:
-        print(f"  ({WORD_BUDGET - counted:,} to spare)")
-    else:
+            print(f"  {count} x {name:<12s} {count * WORDS_PER_FLOAT:,}  (at {WORDS_PER_FLOAT})")
+    print(f"  counted          {counted:,} of {WORD_BUDGET:,}", end="")
+    if counted > WORD_BUDGET:
         print(f"  ({counted - WORD_BUDGET:,} OVER)")
-    print(f"references   {references} of {REFERENCE_LIMIT}", end="")
-    print("  (over)" if references > REFERENCE_LIMIT else "")
+    elif counted < WORD_MINIMUM:
+        print(f"  ({WORD_MINIMUM - counted:,} UNDER the {WORD_MINIMUM:,} minimum)")
+    else:
+        print(f"  ({WORD_BUDGET - counted:,} to spare)")
+    print(f"  references       {references} of {REFERENCE_LIMIT}", end="")
+    print("  (OVER)" if references > REFERENCE_LIMIT else "")
+    title = title_words(text)
+    print(f"  title            {title} of {TITLE_WORD_LIMIT} words", end="")
+    print("  (OVER)" if title > TITLE_WORD_LIMIT else "")
+    print(f"  abstract         {abstract} of {ABSTRACT_WORD_LIMIT} words", end="")
+    print("  (OVER)" if abstract > ABSTRACT_WORD_LIMIT else "")
+
+    # The fallback venue counts differently and has to stay satisfiable too.
+    other = prose + float_total * FALLBACK["per_float"]
+    print()
+    print(
+        f"{FALLBACK['name']} (fallback) — bibliography excluded, {FALLBACK['per_float']} per float"
+    )
+    print(f"  counted          {other:,} of {FALLBACK['budget']:,}", end="")
+    print(
+        f"  ({other - FALLBACK['budget']:,} OVER)"
+        if other > FALLBACK["budget"]
+        else f"  ({FALLBACK['budget'] - other:,} to spare)"
+    )
+    print(f"  references       {references} of {FALLBACK['references']}", end="")
+    print("  (OVER)" if references > FALLBACK["references"] else "")
 
     todos = len(re.findall(r"\\todo\{", inner))
     if todos:
-        print(f"placeholders {todos} \\todo{{}} still to fill")
-    return 0 if counted <= WORD_BUDGET and references <= REFERENCE_LIMIT else 1
+        print(f"\nplaceholders     {todos} \\todo{{}} still to fill")
+
+    within = (
+        counted <= WORD_BUDGET
+        and references <= REFERENCE_LIMIT
+        and title <= TITLE_WORD_LIMIT
+        and abstract <= ABSTRACT_WORD_LIMIT
+    )
+    return 0 if within else 1
 
 
 def main(argv: list[str] | None = None) -> int:

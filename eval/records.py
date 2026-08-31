@@ -16,13 +16,29 @@ from pipelines.common import locks, telemetry
 RUNS_DIR = locks.REPO_ROOT / "runs"
 
 # What a run set has to be before its numbers are anything but harness
-# validation: the experiment's own discipline, three seeds per cell over the
+# validation: the experiment's own discipline, three independent repetitions
 # full change-request set. Anything short of it is a pilot, and says so.
 MANUSCRIPT_SEEDS = 3
 MANUSCRIPT_CHANGE_REQUESTS = 15
 
 PILOT_LABEL = "PILOT — harness validation only, not results"
 FULL_LABEL = "full run"
+
+
+# The paper names the conditions by what they vary, not by their code
+# identifiers. The identifiers are unchanged in the records and the harness; this
+# is the mapping, and it is the only place it is written down.
+PROTOCOL = {
+    "baseline": "prose-free",
+    "compressed": "prose-min",
+    "lcir_no_ast": "typed-free",
+    "lcir": "typed-plan",
+}
+
+#: Repetitions of a cell are independent re-runs under identical conditions.
+#: Nothing in the harness passes a sampling seed to the model; the field is
+#: named `seed` in the records and means the repetition index.
+REPETITION_FIELD = "seed"
 
 
 @dataclass(frozen=True)
@@ -92,7 +108,7 @@ class RunSet:
         reasons = []
         if self.seeds < MANUSCRIPT_SEEDS:
             reasons.append(
-                f"{self.seeds} seed(s) per cell; the experiment's discipline is "
+                f"{self.seeds} independent repetition(s) per cell; the discipline is "
                 f"{MANUSCRIPT_SEEDS} or more"
             )
         if len(self.change_requests) < MANUSCRIPT_CHANGE_REQUESTS:

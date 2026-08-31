@@ -73,7 +73,8 @@ def test_a_thin_run_set_is_a_pilot_and_says_why():
     assert run_set.is_pilot
     assert run_set.label.startswith("PILOT")
     reasons = run_set.why_pilot()
-    assert any("seed" in reason for reason in reasons)
+    # The records still call the field `seed`; the report calls it what it is.
+    assert any("repetition" in reason for reason in reasons)
     assert any("change request" in reason for reason in reasons)
 
 
