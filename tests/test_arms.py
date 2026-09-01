@@ -1,4 +1,4 @@
-"""Tests for the four arms.
+"""Tests for the four protocols.
 
 The experimental claim rests on one property: the arms differ in how a change
 request is represented and in nothing else. Most of what is tested here is that
@@ -33,7 +33,7 @@ def prompts(request_under_test, tmp_path_factory) -> dict[str, str]:
     return rendered
 
 
-# --- the four arms exist and are distinct ----------------------------------
+# --- the four protocols exist and are distinct ----------------------------------
 
 
 def test_every_arm_is_implemented():

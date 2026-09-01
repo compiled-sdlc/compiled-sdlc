@@ -9,14 +9,16 @@ something that does not exist, and the paper must not be submitted.
 ## Build the deposit
 
 ```sh
-make eval                     # ensure data/eval-summary.json and figures/ are current
-bash infra/build_deposit.sh   # sanitizes runs/, assembles data/deposit/, writes the ledger
-cd data && zip -qr compiled-sdlc-data-<version>.zip deposit && cd ..
+make eval        # ensure data/eval-summary.json and figures/ are current
+make deposit     # sanitize, assemble, scan, and zip in one step
 ```
 
-`infra/build_deposit.sh` refuses to finish if any run record still carries an
-absolute path, a username, a hostname, a private address, an e-mail address or
-anything credential-shaped. Model and executor identifiers are deliberately left
+`make deposit` names the zip after the current tag, so the tag and the archive
+cannot drift apart. It refuses to emit anything if any file in the assembled
+archive carries an absolute path, a username, a hostname, a private address, an
+e-mail address or anything credential-shaped --- the sanitizer guarantees the
+run records, and this gate extends that guarantee to the derived results, the
+review packet and the ledger. Model and executor identifiers are deliberately left
 in: they are the apparatus, and an archive that hid them could reproduce
 nothing.
 
@@ -26,7 +28,7 @@ nothing.
 2. Create a GitHub release from that tag. The Zenodo integration mints a new
    version under the existing concept DOI when a release is published; the
    concept DOI does not change, so the paper's citation stays correct.
-3. Attach `data/compiled-sdlc-data-<version>.zip` to the Zenodo record, so the
+3. Attach `data/compiled-sdlc-data-v1.1.0.zip` to the Zenodo record, so the
    deposit is archived alongside the repository snapshot.
 4. Check the new version's landing page lists both the source archive and the
    data archive before considering the availability statement true.
@@ -42,6 +44,7 @@ remove it from the statement.
 ## Current state
 
 - `v1.1.0` is tagged and pushed.
-- The deposit is built and zipped, and has not been uploaded.
+- The deposit is built, scanned and zipped as
+  `data/compiled-sdlc-data-v1.1.0.zip` (14 MB), and has not been uploaded.
 - The concept DOI `10.5281/zenodo.22215075` currently resolves to `v1.0.0`,
   which contains the repository snapshot only.

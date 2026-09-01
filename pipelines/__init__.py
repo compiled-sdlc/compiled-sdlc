@@ -1,1 +1,1 @@
-"""Experiment pipelines: the shared harness and the four arms."""
+"""Experiment pipelines: the shared harness and the four protocols."""

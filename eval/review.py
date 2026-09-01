@@ -142,7 +142,7 @@ def stratified(requests: dict, identifiers: list[str], wanted: int, seed: int) -
     sitting. Cutting it down by taste would choose the sample after seeing the
     runs, so the rule is stated instead: take the difficulty classes in turn and
     draw one change request from each, in an order fixed by the seed, until the
-    quota is filled. Whatever is drawn keeps all four arms, so the design stays
+    quota is filled. Whatever is drawn keeps all four protocols, so the design stays
     fully crossed and an arm is never compared across different work.
     """
     by_difficulty: dict[str, list[str]] = {}

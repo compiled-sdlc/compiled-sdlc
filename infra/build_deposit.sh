@@ -93,6 +93,22 @@ print(f"analysed {analysed}, voided {void}, discarded {discarded}, pilot {pilot}
 PY
 
 echo
+echo "== leak scan over the assembled archive =="
+# The sanitizer guarantees the run records. This gates the whole deposit: the
+# derived results, the review packet and its key, the ledger and the figures all
+# came from somewhere, and any of them could carry a path the sanitizer never
+# saw. Nothing is emitted while a single match stands.
+uv run python infra/scan_deposit.py "$DEPOSIT"
+
+echo
+echo "== packaging =="
+VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo untagged)"
+ZIP="data/compiled-sdlc-data-${VERSION}.zip"
+rm -f "$ZIP"
+(cd data && zip -qr "$(basename "$ZIP")" deposit)
+echo "wrote $ZIP ($(du -h "$ZIP" | cut -f1)), named for tag $VERSION"
+
+echo
 echo "== deposit =="
 du -sh "$DEPOSIT" | cut -f1
 find "$DEPOSIT" -maxdepth 1 -mindepth 1 | sort

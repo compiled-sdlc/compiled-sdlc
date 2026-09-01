@@ -5,16 +5,23 @@ versioned, verifiable **Lifecycle Intermediate Representation** is the canonical
 control plane for a software change, and executable artifacts, assurance
 evidence, and human-readable views are generated projections of it.
 
-This repository holds the research code for that protocol and for the four-arm
-experiment that measures it. The primary measurement is **success-adjusted
-lifecycle cost** — total model, tool, and weighted human-review cost across all
-attempts, divided by the number of change requests that pass hidden acceptance
-tests without violating a `must` invariant.
+This repository holds the research code for that protocol and for the four-protocol
+experiment that measures it. The primary measurement is **success-adjusted model
+cost** — model cost across every attempt, divided by the number of verified
+runs, where a verified run is an experimental cell (one change request, one
+protocol, one repetition) that passed the hidden acceptance tests without
+violating a `must` invariant. Human review time is measured on a small sample
+and enters an exploratory sensitivity analysis only, never the primary measure.
 
-Status: the IR schemas, their validator, the benchmark harness and the four
-arms are in place. No experimental results have been produced yet; none are
-reported here or anywhere else in the repository until `eval/` computes them
-from recorded runs on the full change-request set.
+Status: the run is complete. 20 change requests x 4 protocols x 3 repeated runs
+= 240 analysed cells. The results are **not** in this repository — it carries
+the recipe, not the product. The run records, the evaluation summary through
+which every published number resolves, the figures, the calibration record, the
+review instrument and timings, and the ledger of every excluded or voided cell
+are in the data deposit archived at the Zenodo concept DOI
+[10.5281/zenodo.22215075](https://doi.org/10.5281/zenodo.22215075), which
+resolves to the most recent release. `make eval` recomputes every number from
+the run records; `make deposit` rebuilds the archive.
 
 ## Quickstart
 
@@ -255,8 +262,8 @@ latest version, and each release also has its own.
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22215075.svg)](https://doi.org/10.5281/zenodo.22215075)
 
 > Syed Moid. *compiled-sdlc/compiled-sdlc — The Compiled SDLC*. Zenodo, 2026.
-> https://doi.org/10.5281/zenodo.22215075 (concept DOI; v1.0.0 is
-> 10.5281/zenodo.22215076)
+> https://doi.org/10.5281/zenodo.22215075 (concept DOI, resolving to the most
+> recent release)
 
 ## License
 
