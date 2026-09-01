@@ -227,3 +227,53 @@ def success_rate_interval(run_set: RunSet, arm: str, **kwargs) -> Interval | Non
         return sum(1 for c in mine if c.get("verified_success")) / len(mine)
 
     return clustered_bootstrap(run_set, compute, **kwargs)
+
+
+# --- cache-neutral pricing --------------------------------------------------
+
+
+def neutral_cost(record: dict, input_rate: float, output_rate: float) -> float:
+    """What a cell would have cost with no caching discount at all.
+
+    Prompt caching is an optimisation of the execution, not a property of the
+    protocol, and a protocol whose prompt happens to cache better would look
+    cheaper for a reason the comparison is not about. Repricing every input
+    class --- uncached input, cache writes, cache reads --- at the uncached
+    input rate removes the discount entirely and asks whether the ordering
+    survives it.
+
+    Both models' tokens are priced at the main model's rate here; the internal
+    model is well under one per cent of spend, and the approximation moves every
+    protocol the same way.
+    """
+    usage = record["usage"]
+    inputs = (
+        usage["input_tokens"]
+        + usage["cache_creation_input_tokens"]
+        + usage["cache_read_input_tokens"]
+    )
+    return (inputs * input_rate + usage["output_tokens"] * output_rate) / 1_000_000
+
+
+def neutral_adjusted_cost(arm: str, input_rate: float, output_rate: float):
+    """Cache-neutral cost per verified run, for one protocol."""
+
+    def compute(cells: list[dict]) -> float | None:
+        mine = [c for c in cells if c["arm"] == arm]
+        verified = sum(1 for c in mine if c.get("verified_success"))
+        if not mine or not verified:
+            return None
+        return sum(neutral_cost(c, input_rate, output_rate) for c in mine) / verified
+
+    return compute
+
+
+def neutral_ratio(dearer: str, cheaper: str, input_rate: float, output_rate: float):
+    def compute(cells: list[dict]) -> float | None:
+        top = neutral_adjusted_cost(dearer, input_rate, output_rate)(cells)
+        bottom = neutral_adjusted_cost(cheaper, input_rate, output_rate)(cells)
+        if top is None or bottom is None or not bottom:
+            return None
+        return top / bottom
+
+    return compute

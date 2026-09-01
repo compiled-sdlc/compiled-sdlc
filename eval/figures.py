@@ -111,7 +111,7 @@ def pareto(
             ),
         )
 
-    axes.set_xlabel("mean model cost per cell (USD); bars are 95% bootstrap intervals")
+    axes.set_xlabel("mean model cost per verified run (USD); bars are 95% bootstrap intervals")
     axes.set_ylabel("verified success rate; bars are 95% bootstrap intervals")
     axes.set_ylim(-0.05, 1.08)
     axes.set_xlim(left=0)

@@ -205,6 +205,19 @@ by the data: a run set that has not met the experiment's discipline — three
 seeds per cell over the full change-request set — is labelled a pilot on every
 table and every figure. There is no flag to say otherwise.
 
+## Results
+
+The full run is complete: 20 change requests x 4 protocols x 3 repeated runs,
+240 analysed cells. The numbers, figures and run records are **not** in this
+repository — it carries the recipe, not the product. They are in the archived
+data deposit (see *Citing this artifact* below), which holds the sanitized run
+records, the evaluation summary every paper number resolves through, the
+figures, the calibration record, the review-study instrument and timings, and
+the full exclusion ledger.
+
+`make eval` reproduces every number from run records; `infra/sanitize_runs.py`
+and `infra/build_deposit.sh` rebuild the deposit.
+
 ## Reproduction
 
 Nothing generated is committed. Every number, table, and figure is rebuilt from

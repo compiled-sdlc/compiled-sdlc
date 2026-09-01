@@ -284,6 +284,43 @@ PAIRS = (
 )
 
 
+def cache_neutral_block(run_set: records_module.RunSet) -> dict:
+    """The same comparison with the caching discount removed."""
+    rates = locks.pricing()["models"]
+    main = max(rates, key=lambda model: rates[model]["output"])
+    input_rate, output_rate = rates[main]["input"], rates[main]["output"]
+    arms = {}
+    for arm in run_set.arms:
+        interval = stats.clustered_bootstrap(
+            run_set, stats.neutral_adjusted_cost(arm, input_rate, output_rate)
+        )
+        arms[arm] = {
+            "protocol": records_module.PROTOCOL.get(arm, arm),
+            "adjusted_cost": interval.to_dict() if interval else None,
+        }
+    pairs = []
+    for dearer, cheaper in PAIRS:
+        if dearer not in run_set.arms or cheaper not in run_set.arms:
+            continue
+        interval = stats.clustered_bootstrap(
+            run_set, stats.neutral_ratio(dearer, cheaper, input_rate, output_rate)
+        )
+        pairs.append(
+            {
+                "dearer": dearer,
+                "cheaper": cheaper,
+                "ratio": interval.to_dict() if interval else None,
+                "separated": bool(interval and interval.excludes_one),
+            }
+        )
+    return {
+        "note": "every input class repriced at the uncached input rate",
+        "priced_at": main,
+        "arms": arms,
+        "pairs": pairs,
+    }
+
+
 def models_billed(run_set: records_module.RunSet) -> list[dict]:
     """Every model the run actually paid for, largest share first.
 
@@ -371,6 +408,7 @@ def build(run_set: records_module.RunSet, **options) -> dict:
         "review": review_block(run_set, options),
         "bootstrap": bootstrap_block(run_set),
         "models_billed": models_billed(run_set),
+        "cache_neutral": cache_neutral_block(run_set),
         "salc": [summary.to_dict() for summary in summaries],
         "governance": [index.to_dict() for index in indices],
     }

@@ -23,6 +23,7 @@ help:
 	@echo "bench-validate check the change-request set against its schema and the pin"
 	@echo "calibrate     check every hidden check is red on the pristine pin"
 	@echo "evidence      capture the incident evidence from the running application"
+	@echo "sanitize      rewrite the run records fit to publish;  deposit  assemble the archive"
 	@echo "review-sample build the arm-concealed review packet;  review-verify  check it"
 	@echo "review-start/-stop/-abandon ITEM=<item>   time one review;  review-status"
 	@echo "review-ingest reduce the timings to the per-arm figure make eval reads"
@@ -70,6 +71,12 @@ calibrate:
 
 evidence:
 	$(UV) run python infra/capture_evidence.py $(EVIDENCE_FLAGS)
+
+sanitize:
+	$(UV) run python infra/sanitize_runs.py $(SANITIZE_FLAGS)
+
+deposit:
+	@bash infra/build_deposit.sh
 
 review-sample:
 	$(UV) run python -m eval.review sample $(REVIEW_FLAGS)

@@ -17,9 +17,11 @@ A cell that spent its budget without finishing is charged to its arm, cost and
 all: the budget is a condition of the experiment, identical for every arm. A
 cell the API would not serve is excluded from both halves of the ratio.
 
-`T_human` is not measured yet. The term is carried through with its rate so the
-sensitivity analysis is ready, and reported as unmeasured rather than as zero
-review time, which would be a different and false claim.
+`T_human` has been measured, on a small single-reviewer sample, and enters only
+the exploratory sensitivity analysis --- never the primary measure, which prices
+model tokens alone. Where no measurement exists the term is reported as
+unmeasured rather than as zero review time, which would be a different and false
+claim.
 """
 
 import statistics

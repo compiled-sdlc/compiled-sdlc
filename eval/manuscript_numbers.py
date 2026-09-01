@@ -289,6 +289,37 @@ def build(summary: dict) -> list[str]:
             macro("internalModelShare", f"{billed[1]['share'] * 100:.1f}"),
         ]
 
+    # What typing alone adds, in the currencies the paper quotes.
+    per_arm = {entry["arm"]: entry["distributions"] for entry in summary["salc"]}
+    if "baseline" in per_arm and "lcir_no_ast" in per_arm:
+        base, typed = per_arm["baseline"], per_arm["lcir_no_ast"]
+        for measure, name in (("total_tokens", "Tokens"), ("turns", "Turns")):
+            low, high = base[measure]["median"], typed[measure]["median"]
+            if low:
+                lines.append(macro(f"typingAdds{name}", f"{(high / low - 1) * 100:.0f}"))
+
+    neutral = summary.get("cache_neutral") or {}
+    if neutral.get("pairs"):
+        lines += ["", "% --- the same comparison with the caching discount removed ---"]
+        for pair in neutral["pairs"]:
+            top, bottom = ARM_MACRO.get(pair["dearer"]), ARM_MACRO.get(pair["cheaper"])
+            if top and bottom and pair.get("ratio"):
+                lines.append(macro(f"neutralRatio{top}Vs{bottom}", f"{pair['ratio']['point']:.2f}"))
+        moved = [p for p in neutral["pairs"] if p["separated"]]
+        lines.append(macro("neutralSeparated", str(len(moved))))
+
+    # How much of the cost the caching discount was actually saving.
+    ratios = []
+    for entry in summary["salc"]:
+        arm = entry["arm"]
+        billed = entry["distributions"]["cost_usd"]["median"]
+        neutral_arm = (neutral.get("arms") or {}).get(arm, {}).get("adjusted_cost")
+        adjusted = entry.get("salc_usd_per_verified")
+        if neutral_arm and adjusted:
+            ratios.append(neutral_arm["point"] / adjusted)
+    if ratios:
+        lines.append(macro("cacheDiscountFactor", f"{sum(ratios) / len(ratios):.1f}"))
+
     lines += ["", "% --- why bundle assembly failed ---"]
     taxonomy = summary.get("bundle_assembly_failures", [])
     failed = sum(entry["bundles_failed"] for entry in taxonomy)
