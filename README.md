@@ -241,8 +241,9 @@ latest version, and each release also has its own.
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22215075.svg)](https://doi.org/10.5281/zenodo.22215075)
 
-> Syed Moid. *compiled-sdlc/compiled-sdlc: v1.0.0 — The Compiled SDLC*.
-> Zenodo, 2026. https://doi.org/10.5281/zenodo.22215075
+> Syed Moid. *compiled-sdlc/compiled-sdlc — The Compiled SDLC*. Zenodo, 2026.
+> https://doi.org/10.5281/zenodo.22215075 (concept DOI; v1.0.0 is
+> 10.5281/zenodo.22215076)
 
 ## License
 
