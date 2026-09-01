@@ -21,7 +21,7 @@ from eval.metrics import ArmSummary, pareto_frontier  # noqa: E402
 
 FIGURES_DIR = Path("figures")
 
-# Muted, distinguishable in grey, and stable per arm across every figure.
+# Muted, distinguishable in grey, and stable per protocol across every figure.
 ARM_COLOURS = {
     "baseline": "#4a6fa5",
     "lcir": "#a5584a",
@@ -55,27 +55,49 @@ def _annotate(figure, label: str) -> None:
     )
 
 
-def pareto(summaries: list[ArmSummary], label: str, directory: Path = FIGURES_DIR) -> Path:
-    """Cost against verified success, one point per arm, frontier marked.
+def pareto(
+    summaries: list[ArmSummary],
+    label: str,
+    directory: Path = FIGURES_DIR,
+    intervals: dict | None = None,
+) -> Path:
+    """Cost against verified success, one point per protocol, frontier marked.
 
-    The shape is the result the brief asks for: where the arms sit relative to
-    each other, and whether spending more bought anything.
+    Both axes carry bootstrap confidence intervals when they are available, so
+    the picture says what the run supports rather than only where the points
+    landed. Bars resampled over change requests, not cells.
     """
     directory.mkdir(parents=True, exist_ok=True)
     figure, axes = plt.subplots(figsize=(6.5, 4.5))
     frontier = set(pareto_frontier(summaries))
+    intervals = intervals or {}
 
-    # Arms can land on the same point — a run set where every arm succeeded puts
-    # them all on the ceiling — so they are named in a legend rather than in
-    # labels that would overlap into an unreadable smear.
+    # Protocols can land on the same point, so they are named in a legend rather
+    # than in labels that would overlap into an unreadable smear.
     for summary in summaries:
+        entry = intervals.get(summary.arm) or {}
+        cost_ci = entry.get("mean_cost")
+        rate_ci = entry.get("success_rate")
+        name = entry.get("protocol", summary.arm)
         cost = summary.distributions["cost_usd"]
-        lower, upper = cost.quartiles
+        centre = cost_ci["point"] if cost_ci else cost.median
+        rate = rate_ci["point"] if rate_ci else summary.salc.success_rate
+        xerr = (
+            [[max(centre - cost_ci["ci_low"], 0)], [max(cost_ci["ci_high"] - centre, 0)]]
+            if cost_ci
+            else None
+        )
+        yerr = (
+            [[max(rate - rate_ci["ci_low"], 0)], [max(rate_ci["ci_high"] - rate, 0)]]
+            if rate_ci
+            else None
+        )
         on_frontier = summary.arm in frontier
         axes.errorbar(
-            cost.median,
-            summary.salc.success_rate,
-            xerr=[[max(cost.median - lower, 0)], [max(upper - cost.median, 0)]],
+            centre,
+            rate,
+            xerr=xerr,
+            yerr=yerr,
             fmt="o" if on_frontier else "s",
             markersize=10 if on_frontier else 7,
             color=colour(summary.arm),
@@ -84,18 +106,18 @@ def pareto(summaries: list[ArmSummary], label: str, directory: Path = FIGURES_DI
             capsize=3,
             alpha=0.9,
             label=(
-                f"{summary.arm} — ${cost.median:.3f}/cell, "
-                f"{summary.salc.success_rate:.0%} verified" + (" (frontier)" if on_frontier else "")
+                f"{name} — ${centre:.2f}/cell, {rate:.0%} verified"
+                + (" (frontier)" if on_frontier else "")
             ),
         )
 
-    axes.set_xlabel("median cost per cell (USD), bars show the interquartile range")
-    axes.set_ylabel("verified success rate")
+    axes.set_xlabel("mean model cost per cell (USD); bars are 95% bootstrap intervals")
+    axes.set_ylabel("verified success rate; bars are 95% bootstrap intervals")
     axes.set_ylim(-0.05, 1.08)
     axes.set_xlim(left=0)
     axes.grid(True, alpha=0.25, linewidth=0.6)
     axes.set_axisbelow(True)
-    axes.set_title("Cost against verified success, by arm", fontsize=11)
+    axes.set_title("Cost against verified success, by protocol", fontsize=11)
     axes.spines["top"].set_visible(False)
     axes.spines["right"].set_visible(False)
     axes.legend(loc="lower right", fontsize=8, frameon=False)
@@ -160,6 +182,14 @@ def distributions(summaries: list[ArmSummary], label: str, directory: Path = FIG
     return path
 
 
-def write_all(summaries: list[ArmSummary], label: str, directory: Path = FIGURES_DIR) -> list[Path]:
+def write_all(
+    summaries: list[ArmSummary],
+    label: str,
+    directory: Path = FIGURES_DIR,
+    intervals: dict | None = None,
+) -> list[Path]:
     """Every figure, in the order they are referred to."""
-    return [pareto(summaries, label, directory), distributions(summaries, label, directory)]
+    return [
+        pareto(summaries, label, directory, intervals),
+        distributions(summaries, label, directory),
+    ]

@@ -227,6 +227,13 @@ product.
 
 Run telemetry is written as JSONL under `runs/`, which is not tracked.
 
+## Provenance
+
+[PROVENANCE.md](PROVENANCE.md) maps every experiment to the outputs it produced,
+gives the reproduction commands in order, records what is pinned, and states the
+full run ledger — including the cells that were voided, discarded or archived,
+and why.
+
 ## Citing this artifact
 
 Archived at Zenodo. The DOI below is the concept DOI: it always resolves to the

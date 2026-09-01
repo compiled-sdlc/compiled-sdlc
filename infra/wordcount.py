@@ -105,7 +105,10 @@ def drop_with_argument(text: str) -> str:
 # Commands whose argument is text that does appear: a section heading is words
 # on the page, so the command goes and the argument stays.
 BARE_COMMAND = re.compile(r"\\[a-zA-Z@]+\*?(\[[^\]]*\])?")
-MATH = re.compile(r"\$[^$]*\$")
+# An escaped dollar is currency in the prose, not a math delimiter. Treating it
+# as one pairs it with a real delimiter far away and silently swallows whole
+# sections of the paper, which is how this counter under-reported for a while.
+MATH = re.compile(r"(?<!\\)\$[^$]*?(?<!\\)\$")
 BRACES = re.compile(r"[{}]")
 
 

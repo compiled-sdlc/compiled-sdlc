@@ -340,3 +340,30 @@ def test_the_manuscript_quotes_no_hand_typed_measurement():
     }
     unexplained = [token for token in suspicious if bare(token) not in quoted_from_literature]
     assert unexplained == [], f"hand-typed numbers in the manuscript: {unexplained}"
+
+
+def test_no_sentence_appears_twice():
+    """A sentence in two places is an editing accident, not emphasis.
+
+    Whole paragraphs were duplicated between the threats section and the
+    conclusion at one point, which a word count cannot see and a reader
+    certainly can.
+    """
+    import re
+
+    text = (REPO / "manuscript" / "main.tex").read_text()
+    body = wordcount.body(text)
+    body = re.sub(r"\\begin\{(table|figure)\}.*?\\end\{\1\}", " ", body, flags=re.DOTALL)
+    body = re.sub(r"%.*", " ", body)
+    prose = " ".join(body.split())
+    # Sentences long enough that a repeat cannot be coincidence.
+    sentences = [
+        normalised
+        for sentence in re.split(r"(?<=[.?!])\s+", prose)
+        if len((normalised := " ".join(sentence.split())).split()) >= 8
+    ]
+    seen: dict[str, int] = {}
+    for sentence in sentences:
+        seen[sentence] = seen.get(sentence, 0) + 1
+    repeated = [sentence for sentence, count in seen.items() if count > 1]
+    assert repeated == [], f"sentences appearing more than once: {repeated}"

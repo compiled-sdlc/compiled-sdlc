@@ -79,6 +79,9 @@ def build(summary: dict) -> list[str]:
         macro("pinCommit", target["target"]["commit"][:12]),
         macro("pinDate", target["target"]["commit_date"][:10]),
         macro("pinModel", executor["model"]["id"]),
+        # The executor bills a second, smaller model for its own internal calls;
+        # tokens are priced per model, so the paper has to be able to name it.
+        macro("pinExecutor", executor["cli"]["binary"]),
         macro("pinExecutorVersion", executor["cli"]["version"]),
         macro("pinJdk", str(environment["toolchain"]["jdk_major"])),
         macro("pinServices", str(len(environment["services"]))),
@@ -187,6 +190,18 @@ def build(summary: dict) -> list[str]:
             if minutes and entry["model_cost_usd"]:
                 human = 120.0 * (minutes * entry["cells_counted"] / 60.0)
                 shares.append(human / entry["model_cost_usd"])
+        # The rate at which the imputed review term equals model cost.
+        crossovers = []
+        for entry in summary["salc"]:
+            minutes = review["arms"].get(entry["arm"], {}).get("median_minutes")
+            if minutes and entry["model_cost_usd"]:
+                hours = minutes * entry["cells_counted"] / 60.0
+                crossovers.append(entry["model_cost_usd"] / hours)
+        if crossovers:
+            lines += [
+                macro("crossoverLow", f"{min(crossovers):.0f}"),
+                macro("crossoverHigh", f"{max(crossovers):.0f}"),
+            ]
         if shares:
             lines += [
                 macro("humanOverModelLow", f"{min(shares):.0f}"),
@@ -205,6 +220,7 @@ def build(summary: dict) -> list[str]:
         lines += [
             macro("bootResamples", f"{boot['resamples']:,}".replace(",", "\\,")),
             macro("bootSeed", str(boot["seed"])),
+            macro("ciLevel", "95"),
         ]
         for arm, entry in boot["arms"].items():
             name = ARM_MACRO.get(arm)
@@ -264,6 +280,14 @@ def build(summary: dict) -> list[str]:
         ratio = prompts["Compressed"] / prompts["Baseline"]
         lines.append(macro("promptRetention", f"{ratio:.2f}"))
         lines.append(macro("promptReduction", f"{(1 - ratio) * 100:.0f}"))
+
+    billed = summary.get("models_billed") or []
+    if len(billed) > 1:
+        lines += [
+            macro("pinMainModel", billed[0]["model"]),
+            macro("pinInternalModel", billed[1]["model"]),
+            macro("internalModelShare", f"{billed[1]['share'] * 100:.1f}"),
+        ]
 
     lines += ["", "% --- why bundle assembly failed ---"]
     taxonomy = summary.get("bundle_assembly_failures", [])

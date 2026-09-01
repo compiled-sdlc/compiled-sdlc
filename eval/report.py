@@ -136,32 +136,6 @@ def assembly_table(taxonomy: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def gap_table(cost_gaps: list[dict], success_gaps: list[dict]) -> str:
-    """Which differences the run can carry, and which it cannot."""
-    lines = ["WHICH DIFFERENCES THE RUN SUPPORTS", ""]
-    lines.append("Cost per cell — a gap clears when the two interquartile ranges do not overlap.")
-    header = f"  {'pair':30s} {'gap':>9s} {'ratio':>7s}  verdict"
-    lines += [header, "  " + "-" * (len(header) - 2)]
-    for gap in cost_gaps:
-        pair = f"{gap['cheaper']} < {gap['dearer']}"
-        verdict = "clears" if gap["clears"] else "INSIDE the spreads — not established"
-        ratio = f"{gap['ratio']:.2f}x" if gap["ratio"] else "—"
-        lines.append(f"  {pair:30s} ${gap['gap_usd']:8.4f} {ratio:>7s}  {verdict}")
-    lines.append("")
-    lines.append("Verified success — no interquartile range exists for a proportion, so a gap")
-    lines.append("is read against the spread each arm already shows between its own seeds.")
-    header = f"  {'pair':30s} {'gap':>9s} {'cells':>6s} {'seed spread':>12s}  verdict"
-    lines += [header, "  " + "-" * (len(header) - 2)]
-    for gap in success_gaps:
-        pair = f"{gap['better']} > {gap['worse']}"
-        verdict = "clears" if gap["clears"] else "INSIDE the seed spread — not established"
-        lines.append(
-            f"  {pair:30s} {gap['gap']:9.4f} {gap['cells']:6d} "
-            f"{gap['widest_within_arm_spread']:12.4f}  {verdict}"
-        )
-    return "\n".join(lines)
-
-
 def per_change_request(run_set: records_module.RunSet) -> str:
     arms = run_set.arms
     header = f"{'change request':16s} " + " ".join(f"{arm:>13s}" for arm in arms)
@@ -295,13 +269,42 @@ def review_block(run_set: records_module.RunSet, options: dict) -> dict:
     }
 
 
+#: The four contrasts the design was built to answer, fixed before the run.
+#: typed-plan against typed-free isolates the plan obligation; typed-free
+#: against prose-free isolates the typing; typed-plan against prose-free is the
+#: whole protocol against the ordinary way of working; prose-min against
+#: prose-free is the minification control. The two remaining combinations pit a
+#: typed protocol against the minification control, which changes two things at
+#: once and answers no question the design poses.
 PAIRS = (
-    ("lcir", "baseline"),
-    ("lcir", "compressed"),
     ("lcir", "lcir_no_ast"),
     ("lcir_no_ast", "baseline"),
+    ("lcir", "baseline"),
     ("compressed", "baseline"),
 )
+
+
+def models_billed(run_set: records_module.RunSet) -> list[dict]:
+    """Every model the run actually paid for, largest share first.
+
+    Read off the records rather than the lock: what a cell was billed for is a
+    measurement, and the executor's own internal calls go to a second, smaller
+    model that no lock section is obliged to describe as such.
+    """
+    spend: dict[str, float] = {}
+    for record in run_set.counted:
+        for model, amount in (record.get("cost_by_model") or {}).items():
+            value = amount if isinstance(amount, int | float) else amount.get("cost_usd", 0.0)
+            spend[model] = spend.get(model, 0.0) + float(value)
+    total = sum(spend.values())
+    return [
+        {
+            "model": model,
+            "cost_usd": round(cost, 4),
+            "share": round(cost / total, 5) if total else 0,
+        }
+        for model, cost in sorted(spend.items(), key=lambda item: -item[1])
+    ]
 
 
 def bootstrap_block(run_set: records_module.RunSet) -> dict:
@@ -364,11 +367,10 @@ def build(run_set: records_module.RunSet, **options) -> dict:
         "seeds": run_set.seeds,
         "pricing_captured_on": locks.pricing()["captured_on"],
         "pareto_frontier": metrics.pareto_frontier(summaries),
-        "cost_gaps": metrics.cost_gaps(summaries),
-        "success_gaps": metrics.success_gaps(run_set, summaries),
         "bundle_assembly_failures": governance.assembly_taxonomy(run_set),
         "review": review_block(run_set, options),
         "bootstrap": bootstrap_block(run_set),
+        "models_billed": models_billed(run_set),
         "salc": [summary.to_dict() for summary in summaries],
         "governance": [index.to_dict() for index in indices],
     }
@@ -448,22 +450,21 @@ def main(argv: list[str] | None = None) -> int:
     print(outcomes(run_set))
 
     print("\n\n" + assembly_table(governance.assembly_taxonomy(run_set)))
-    cost_gaps = metrics.cost_gaps(summaries)
-    success_gaps = metrics.success_gaps(run_set, summaries)
-    print("\n\n" + gap_table(cost_gaps, success_gaps))
-
     frontier = metrics.pareto_frontier(summaries)
     print(f"\n\nPARETO FRONTIER\n\n  {', '.join(frontier)}")
     if len(frontier) == len(summaries):
         print("  No arm dominates another on cost and verified success together.")
-    for line in metrics.frontier_caveats(summaries, frontier):
-        print(f"  {line}")
+    print("  Separation is decided by the bootstrap intervals above, not by the")
+    print("  frontier: a protocol on it may still be inseparable from one that is not.")
 
     summary = build(run_set, **options)
     written = records_module.write_json(arguments.summary, summary)
     print(f"\n\nwrote {written}")
     if not arguments.no_figures:
-        for path in figures_module.write_all(summaries, run_set.label, arguments.figures):
+        intervals = summary.get("bootstrap", {}).get("arms", {})
+        for path in figures_module.write_all(
+            summaries, run_set.label, arguments.figures, intervals
+        ):
             print(f"wrote {path}")
 
     print(f"\n{run_set.label}")
