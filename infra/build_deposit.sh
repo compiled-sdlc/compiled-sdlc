@@ -26,6 +26,9 @@ cp figures/*.png "$DEPOSIT/figures/"
 cp bench/calibration.json "$DEPOSIT/bench/"
 cp bench/prompt-allowance.json "$DEPOSIT/bench/"
 cp eval/REVIEW_PROTOCOL.md "$DEPOSIT/review/"
+# Names each file's role. HOW-TO-REVIEW.md is the instrument as administered and
+# is copied verbatim below, never rewritten to match the protocol description.
+cp eval/review_deposit_readme.md "$DEPOSIT/review/README.md"
 
 # The review instrument and its key. The study is finished, so the key is
 # published: without it nobody can check that the concealment held.

@@ -371,3 +371,29 @@ def test_no_sentence_appears_twice():
         seen[sentence] = seen.get(sentence, 0) + 1
     repeated = [sentence for sentence, count in seen.items() if count > 1]
     assert repeated == [], f"sentences appearing more than once: {repeated}"
+
+
+# Phrases retired over successive revisions. Each was corrected once and then
+# reappeared somewhere the previous sweep did not reach, usually because the
+# source wraps lines and ties words with ~, so a plain grep missed it. The scan
+# normalises whitespace and ties before looking, which is what a reader does.
+BANNED = {
+    "per verified change": "the denominator counts verified runs, not changes",
+    "counts change requests": "it counts verified experimental cells",
+    "between their own seeds": "there are no seeds; repetitions are not sampled",
+    "independent repetitions": "order was fixed and caching shared, so not independent",
+    "items a protocol": "reads as a typo for items per protocol",
+    "cost in model tokens": "superseded by total model expenditure per verified run",
+    "one per difficulty class": "six change requests span five classes, not one each",
+    "distributions are in the repository": "they are in the data deposit",
+}
+
+
+def test_no_retired_phrase_returns():
+    """Residuals get fixed and come back. This ends that mechanically."""
+    import re
+
+    text = (REPO / "manuscript" / "main.tex").read_text()
+    normalised = re.sub(r"[\s~]+", " ", wordcount.body(text))
+    returned = [f"{phrase!r} ({why})" for phrase, why in BANNED.items() if phrase in normalised]
+    assert returned == [], "retired phrasing is back: " + "; ".join(returned)
