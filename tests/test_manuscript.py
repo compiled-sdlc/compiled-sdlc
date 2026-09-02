@@ -284,6 +284,10 @@ def test_the_manuscript_quotes_no_hand_typed_measurement():
     body = re.sub(r"\\begin\{table\}.*?\\end\{table\}", " ", body, flags=re.DOTALL)
     body = re.sub(r"\\(cite|ref|label|input|graphicspath|url)\{[^}]*\}", " ", body)
     body = re.sub(r"\\todo\{.*?\}", " ", body, flags=re.DOTALL)
+    # A release identifier is a name, not a figure, however many dots it has.
+    body = re.sub(r"\bv\d+(?:\.\d+)*\b", " ", body)
+    # A column-break directive is typesetting, not a measurement.
+    body = re.sub(r"\\IEEEtriggeratref\{[^}]*\}", " ", body)
     # The author block is an address, not a measurement, and its \thanks nests
     # braces, so it is removed by scanning for the balancing brace.
     start = body.find("\\author{")

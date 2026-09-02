@@ -52,7 +52,7 @@ runs in `bench/executor.lock`, and the prices token counts are costed at in
 | Path | Contents |
 |---|---|
 | `lifecycle-ir/` | JSON Schemas for the five IR structures, example instances, validator |
-| `pipelines/common/` | Shared run harness: budgets, telemetry capture, arm interface |
+| `pipelines/common/` | Shared run harness: budgets, telemetry capture, protocol interface |
 | `pipelines/baseline/` | Arm A — natural-language requirements, plain-text edits, log feedback |
 | `pipelines/lcir/` | Arm B — full Lifecycle IR: typed intent, structured edits, evidence, provenance |
 | `pipelines/lcir_no_ast/` | Arm C — ablation: typed intent and evidence, plain-text edits |
@@ -110,16 +110,16 @@ conditions. Nothing passes a sampling seed to the model; the record's `seed`
 field is the repetition index, and the paper calls it an independent repetition.
 
 `lcir_no_ast` is the ablation: it separates what typing the intent buys from
-what structuring the edits buys. Every arm is given the same content — the same
+what structuring the edits buys. Every protocol is given the same content — the same
 statement, the same observable behaviours, the same stated boundaries — and a
 test holds them to it.
 
-Prompt tuning is bounded and equal: each arm has the same allowance of template
+Prompt tuning is bounded and equal: each protocol has the same allowance of template
 revisions, recorded with the digest of its frozen template in
-`bench/prompt-allowance.json`. An arm that had more attention spent on it would
+`bench/prompt-allowance.json`. A protocol that had more attention spent on it would
 win on effort rather than on representation.
 
-After a run, the IR arms write what verification observed into an evidence
+After a run, the typed protocols write what verification observed into an evidence
 graph, record who did what in a provenance ledger, assemble and validate the
 whole bundle, and render the projections in `projections/` — a user story, a
 change summary and an incident note, generated from the IR rather than
@@ -127,16 +127,16 @@ maintained beside it.
 
 ## How a run works
 
-One run is one change request, put to one arm, at one seed.
+One run is one change request, put to one protocol, at one repetition.
 
 1. The run gets a fresh worktree of the target application at its pin. Nothing
    from this repository is placed in it.
-2. The arm renders the change request's statement — and only its statement —
-   into whatever artifacts that arm gives an agent. A change request that
+2. The protocol renders the change request's statement — and only its statement —
+   into whatever artifacts that protocol gives an agent. A change request that
    begins with an incident also carries the runtime evidence for it: HTTP
    transcripts and service logs captured from the running pinned application,
-   the same bytes for every arm, placed in the worktree and referred to in each
-   arm's own idiom. It is input, never ground truth.
+   the same bytes for every protocol, placed in the worktree and referred to in each
+   protocol's own idiom. It is input, never ground truth.
 3. The pinned executor runs headlessly in that worktree under three budgets: a
    cost ceiling it enforces itself, and a turn cap and a wall clock the harness
    enforces around it. The whole event stream is captured as it arrives.
@@ -154,9 +154,9 @@ invariant was violated.
 Two rules decide what a cell means, and they hold for the whole experiment. A
 cell that spent its budget — the cost ceiling, the turn cap or the wall clock —
 without finishing is a failure of the agent: the budget is a condition of the
-experiment, identical for every arm. It counts against its arm and its cost
+experiment, identical for every protocol. It counts against its protocol and its cost
 counts in the metric. A cell the API would not serve — an exhausted balance, a
-rate limit, an authentication failure — measures nothing about any arm; it is
+rate limit, an authentication failure — measures nothing about any protocol; it is
 recorded as aborted with the class of failure and excluded from every column.
 The matrix is resumable, so an aborted cell is picked up by invoking the runner
 again.
@@ -179,37 +179,41 @@ workspace, so no check may be pointed at a live system.
 
 ## What the evaluation reports
 
-**Success-adjusted lifecycle cost** — model cost plus execution cost plus
-review time at a stated rate, divided by verified successes. Dividing by
-successes is the point: an arm that spends twice as much and fails half as often
-is not cheaper, and retries and failures show up as cost instead of averaging
-away. A verified success passed the hidden acceptance checks and violated no
-`must` invariant — nothing else enters that denominator. Review time is not
-measured yet, so the weighted term contributes nothing; the report says so
-rather than reporting it as zero review time, which would be a different claim.
+**Success-adjusted model cost** — model cost across every attempt, divided by
+verified runs. Dividing by verified runs is the point: a protocol that spends
+twice as much and fails half as often is not cheaper, and retries and failures
+show up as cost instead of averaging away. A verified run is an experimental
+cell that passed the hidden acceptance checks and violated no `must` invariant
+— nothing else enters that denominator.
+
+**Review time**, measured on a concealed single-reviewer sample, enters an
+exploratory sensitivity analysis only, never the primary measure. The report
+sweeps it across stated rates and says plainly how weak the measurement is.
+Where no measurement exists the term is reported as unmeasured rather than as
+zero review time, which would be a different claim.
 
 **Governance completeness** — five components: whether the change was stated as
 a transformation plan that validates, whether the bundle assembled, whether the
 human decision the risk class demands was recorded, whether every obligation has
 a passing evidence path, and whether every transformation is accounted for by
-the ledger. Only the arms that produce IR can answer any of them, and that is
-reported as a capability, never scored as a penalty: an arm with no IR is not
+the ledger. Only the protocols that produce IR can answer any of them, and that is
+reported as a capability, never scored as a penalty: a protocol with no IR is not
 failing these checks, it has no way to take them — and no way to notice when its
 own governance is incomplete. Each component reads as scored, applicable but not
 recorded, or not observable; none of the three is a zero, and none of them
 touches whether a change request succeeded.
 
-**Distributions and the frontier** — median and interquartile range per arm for
+**Distributions and the frontier** — median and interquartile range per protocol for
 cost, tokens, reasoning tokens, turns and wall time, a Pareto plot of cost
 against verified success, and a per-change-request breakdown. Medians rather
 than means, because run-to-run variance on this kind of work is large enough
 that an average of a handful of runs says very little. Where the frontier
-separates two arms by less than their own spread, the report says the ordering
+separates two protocols by less than their own spread, the report says the ordering
 is not established.
 
 Every output is labelled by what it was computed from, and the label is decided
 by the data: a run set that has not met the experiment's discipline — three
-seeds per cell over the full change-request set — is labelled a pilot on every
+repeated runs per cell over the full change-request set — is labelled a pilot on every
 table and every figure. There is no flag to say otherwise.
 
 ## Results

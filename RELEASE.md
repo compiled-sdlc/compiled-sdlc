@@ -24,14 +24,19 @@ nothing.
 
 ## Publish
 
-1. Tag the final state and push the tag.
-2. Create a GitHub release from that tag. The Zenodo integration mints a new
-   version under the existing concept DOI when a release is published; the
-   concept DOI does not change, so the paper's citation stays correct.
-3. Attach `data/compiled-sdlc-data-v1.1.0.zip` to the Zenodo record, so the
-   deposit is archived alongside the repository snapshot.
-4. Check the new version's landing page lists both the source archive and the
-   data archive before considering the availability statement true.
+The GitHub–Zenodo auto-sync is being turned **off** first, so that publishing a
+release cannot mint a source-only version. The deposit and the snapshot go up
+together or not at all.
+
+1. Confirm auto-sync is off for this repository in Zenodo's GitHub settings.
+2. Tag the final state and push the tag (done: `v1.1.1`).
+3. On Zenodo, open the existing record under the concept DOI and choose **New
+   version**.
+4. Upload **both**: the source snapshot for the tag (GitHub's
+   `.../archive/refs/tags/v1.1.1.zip`) and `data/compiled-sdlc-data-v1.1.1.zip`.
+5. Set the version metadata to `v1.1.1` and publish.
+6. Check the new version's landing page lists both archives before considering
+   the availability statement true.
 
 ## What the statement promises
 
@@ -41,10 +46,22 @@ record, the review timings and key, the cache-neutral and rate-sweep tables, and
 the exclusion ledger. If any of those is not in the archive, either add it or
 remove it from the statement.
 
+## Do not submit until this is done
+
+**Gate: OPEN — the paper must not be submitted.**
+
+The availability statement names release v1.1.1 and promises a data deposit.
+Until the concept DOI `10.5281/zenodo.22215075` verifiably resolves to a version
+whose files include the data archive, that promise is false.
+
+Close this gate only after fetching the record and confirming the data archive
+is listed. Then change this section to say so, and record the version DOI here
+for reference.
+
 ## Current state
 
-- `v1.1.0` is tagged and pushed.
+- `v1.1.1` is tagged and pushed.
 - The deposit is built, scanned and zipped as
-  `data/compiled-sdlc-data-v1.1.0.zip` (14 MB), and has not been uploaded.
-- The concept DOI `10.5281/zenodo.22215075` currently resolves to `v1.0.0`,
-  which contains the repository snapshot only.
+  `data/compiled-sdlc-data-v1.1.1.zip`, and has not been uploaded.
+- The concept DOI currently resolves to `v1.0.0`, which contains the repository
+  snapshot only — no run records.

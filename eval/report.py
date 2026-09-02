@@ -233,7 +233,10 @@ def review_block(run_set: records_module.RunSet, options: dict) -> dict:
         if arm in measured:
             per_arm["human_minutes"] = measured[arm]
         swept = metrics.sensitivity(run_set, arm, rates, **per_arm)
-        arms[arm] = {"median_minutes": measured.get(arm)}
+        arms[arm] = {
+            "median_minutes": measured.get(arm),
+            "protocol": records_module.PROTOCOL.get(arm, arm),
+        }
         for rate, value in swept.items():
             sweep[f"{rate:g}"][arm] = None if value is None else round(value, 4)
     ordering = {

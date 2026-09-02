@@ -52,6 +52,30 @@ def money(value: float | None) -> str:
     return "\\todo{not measured}" if value is None else f"{value:.4f}"
 
 
+#: Small counts read as words in prose. Generated rather than typed, so the word
+#: and the figure cannot drift apart.
+NUMBER_WORDS = {
+    0: "No",
+    1: "One",
+    2: "Two",
+    3: "Three",
+    4: "Four",
+    5: "Five",
+    6: "Six",
+    7: "Seven",
+    8: "Eight",
+    9: "Nine",
+    10: "Ten",
+    11: "Eleven",
+    12: "Twelve",
+}
+
+
+def spelled(value: int) -> str:
+    """A small count as a capitalised word, or the digits when it is large."""
+    return NUMBER_WORDS.get(int(value), str(int(value)))
+
+
 def whole(value: float | None) -> str:
     return "\\todo{not measured}" if value is None else f"{value:,.0f}".replace(",", "\\,")
 
@@ -85,6 +109,7 @@ def build(summary: dict) -> list[str]:
         macro("pinExecutorVersion", executor["cli"]["version"]),
         macro("pinJdk", str(environment["toolchain"]["jdk_major"])),
         macro("pinServices", str(len(environment["services"]))),
+        macro("pinServicesWord", spelled(len(environment["services"]))),
         macro("pricesCaptured", summary["pricing_captured_on"]),
         macro("budgetTurns", str(executor["budget"]["max_turns"])),
         macro("budgetWallClock", str(int(executor["budget"]["wall_clock_seconds"]))),
@@ -175,8 +200,12 @@ def build(summary: dict) -> list[str]:
                 if name and value is not None:
                     lines.append(macro(f"salc{name}At{suffix}", money(value)))
             order = review["ordering_by_rate"][rate]
-            spelled = " $<$ ".join(arm.replace("_", "\\_") for arm in order)
-            lines.append(macro(f"orderingAt{suffix}", spelled))
+            # Protocol names, not code identifiers: the paper prints this line.
+            rendered = " $<$ ".join(
+                review["arms"].get(arm, {}).get("protocol", arm).replace("_", "\\_")
+                for arm in order
+            )
+            lines.append(macro(f"orderingAt{suffix}", rendered))
         changes = review["ordering_changes_at_rate"]
         lines.append(macro("orderingChangesAt", changes if changes else "--"))
         lines.append(macro("reviewRates", ", ".join(f"\\${rate}" for rate in rates if rate != "0")))
@@ -211,6 +240,7 @@ def build(summary: dict) -> list[str]:
         lines += [
             macro("reviewItems", str(study.get("items_sampled", "--"))),
             macro("reviewItemsPerArm", str(study.get("items_per_arm", "--"))),
+            macro("reviewItemsPerArmWord", spelled(study.get("items_per_arm") or 0).lower()),
             macro("reviewReviewers", str(study.get("reviewers", "--"))),
         ]
 
@@ -304,7 +334,12 @@ def build(summary: dict) -> list[str]:
         for pair in neutral["pairs"]:
             top, bottom = ARM_MACRO.get(pair["dearer"]), ARM_MACRO.get(pair["cheaper"])
             if top and bottom and pair.get("ratio"):
-                lines.append(macro(f"neutralRatio{top}Vs{bottom}", f"{pair['ratio']['point']:.2f}"))
+                interval = pair["ratio"]
+                lines += [
+                    macro(f"neutralRatio{top}Vs{bottom}", f"{interval['point']:.2f}"),
+                    macro(f"neutralLow{top}Vs{bottom}", f"{interval['ci_low']:.2f}"),
+                    macro(f"neutralHigh{top}Vs{bottom}", f"{interval['ci_high']:.2f}"),
+                ]
         moved = [p for p in neutral["pairs"] if p["separated"]]
         lines.append(macro("neutralSeparated", str(len(moved))))
 
